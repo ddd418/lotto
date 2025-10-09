@@ -43,7 +43,7 @@ fun MainScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(NotionColors.Gray50)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(
             modifier = Modifier

@@ -109,22 +109,50 @@ def save_winning_number_to_db(db: Session, draw_data: Dict) -> Optional[WinningN
         db.rollback()
         return None
 
-def get_latest_draw_number() -> Optional[int]:
+def get_latest_draw_number(start_from: Optional[int] = None) -> Optional[int]:
     """
     현재 최신 회차 번호 추정 (연속 실패 방식)
+    lott.py의 collect_stats 로직 참고
+    
+    Args:
+        start_from: 검색 시작 회차 (None이면 1회차부터, 값이 있으면 해당 회차부터)
     
     Returns:
         최신 회차 번호 또는 None
     """
-    # 최근 회차부터 역순으로 확인 (대략 1100회 근처부터 시작)
-    # 실제로는 현재 날짜 기반으로 계산할 수도 있음
-    for draw_no in range(1150, 1, -1):
-        data = fetch_winning_number(draw_no)
-        if data:
-            logger.info(f"🎯 최신 회차: {draw_no}회")
-            return draw_no
+    start_draw = start_from if start_from else 1
     
-    return None
+    if start_from:
+        logger.info(f"🔍 최신 회차 검색 시작 ({start_draw}회차부터, 연속 실패 5회까지)")
+    else:
+        logger.info(f"🔍 최신 회차 검색 시작 (1회차부터 연속 실패 5회까지)")
+    
+    fail_streak = 0
+    last_success_draw = 0
+    drw_no = start_draw
+    
+    while True:
+        data = fetch_winning_number(drw_no)
+        if not data:
+            fail_streak += 1
+            logger.debug(f"  {drw_no}회차 실패 (연속 실패: {fail_streak}회)")
+            if fail_streak >= 5:
+                logger.info(f"🎯 최신 회차 확정: {last_success_draw}회 (연속 실패 5회 도달)")
+                break
+        else:
+            fail_streak = 0
+            last_success_draw = drw_no
+            if drw_no % 100 == 0 or (start_from and drw_no == start_draw):
+                logger.info(f"  ✅ {drw_no}회차 확인됨...")
+        
+        drw_no += 1
+        
+        # 무한루프 방지 (2030년까지 약 1500회차 예상)
+        if drw_no > 2000:
+            logger.warning(f"⚠️ 2000회차 도달, 검색 중단")
+            break
+    
+    return last_success_draw if last_success_draw > 0 else None
 
 def sync_all_winning_numbers(db: Session, start_draw: int = 1, end_draw: Optional[int] = None) -> Dict:
     """

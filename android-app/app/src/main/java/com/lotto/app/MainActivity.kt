@@ -63,6 +63,18 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             val isDarkMode by themeViewModel.isDarkMode.collectAsStateWithLifecycle()
+            val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
+            val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+            
+            // 디버깅 로그
+            android.util.Log.d("MainActivity", "Recomposition: isDarkMode=$isDarkMode, themeMode=$themeMode")
+            
+            // 시스템 테마 모드일 때 시스템 다크 모드 변경 감지
+            LaunchedEffect(isSystemDark, themeMode) {
+                if (themeMode == "system") {
+                    themeViewModel.setThemeMode(this@MainActivity, "system", isSystemDark)
+                }
+            }
             
             LottoAppTheme(darkTheme = isDarkMode) {
                 Surface(
@@ -98,8 +110,28 @@ fun LottoApp(
     
     val isLoggedIn by authViewModel.isLoggedIn.collectAsStateWithLifecycle()
     
-    // 항상 메인 화면에서 시작 (로그인 선택 사항)
-    val startDestination = Screen.Main.route
+    // 로그인 상태에 따라 시작 화면 결정
+    val startDestination = if (isLoggedIn) Screen.Main.route else Screen.Login.route
+    
+    // 로그인 상태 변경 감지하여 자동 네비게이션
+    LaunchedEffect(isLoggedIn) {
+        val currentRoute = navController.currentBackStackEntry?.destination?.route
+        
+        when {
+            // 로그인 성공 시 메인 화면으로 이동
+            isLoggedIn && currentRoute == Screen.Login.route -> {
+                navController.navigate(Screen.Main.route) {
+                    popUpTo(Screen.Login.route) { inclusive = true }
+                }
+            }
+            // 로그아웃 시 로그인 화면으로 이동
+            !isLoggedIn && currentRoute != Screen.Login.route -> {
+                navController.navigate(Screen.Login.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+    }
     
     NavHost(
         navController = navController,

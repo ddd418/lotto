@@ -20,7 +20,7 @@ import atexit
 from sqlalchemy.orm import Session
 
 # 데이터베이스 및 인증 관련 import
-from database import get_db, engine
+from database import get_db, engine, SessionLocal
 from models import Base, User, SavedNumber, WinningCheck, UserSettings, WinningNumber
 from auth import TokenManager
 from kakao_auth import KakaoAuth
@@ -157,12 +157,20 @@ class SavedNumberRequest(BaseModel):
     is_favorite: bool = Field(default=False, description="즐겨찾기 여부")
     recommendation_type: Optional[str] = Field(default=None, description="추천 유형")
 
+class SavedNumberUpdateRequest(BaseModel):
+    """저장된 번호 수정 요청 (모든 필드 Optional)"""
+    numbers: Optional[List[int]] = Field(default=None, min_items=6, max_items=6, description="수정할 6개의 로또 번호")
+    nickname: Optional[str] = Field(default=None, max_length=50, description="번호 별칭")
+    memo: Optional[str] = Field(default=None, description="메모")
+    is_favorite: Optional[bool] = Field(default=None, description="즐겨찾기 여부")
+    recommendation_type: Optional[str] = Field(default=None, description="추천 유형")
+
 class SavedNumberResponse(BaseModel):
     id: int
     numbers: List[int]
     nickname: Optional[str]
     memo: Optional[str]
-    is_favorite: bool
+    is_favorite: Optional[bool]  # None 값 허용
     recommendation_type: Optional[str]
     created_at: datetime
 
@@ -670,23 +678,38 @@ async def get_saved_numbers(
     """
     저장된 로또 번호 목록 조회
     """
-    saved_numbers = db.query(SavedNumber).filter(
-        SavedNumber.user_id == current_user.id
-    ).order_by(SavedNumber.created_at.desc()).all()
-    
-    return [
-        SavedNumberResponse(
-            id=saved.id,
-            numbers=[saved.number1, saved.number2, saved.number3,
-                    saved.number4, saved.number5, saved.number6],
-            nickname=saved.nickname,
-            memo=saved.memo,
-            is_favorite=saved.is_favorite,
-            recommendation_type=saved.recommendation_type,
-            created_at=saved.created_at
-        )
-        for saved in saved_numbers
-    ]
+    try:
+        saved_numbers = db.query(SavedNumber).filter(
+            SavedNumber.user_id == current_user.id
+        ).order_by(SavedNumber.created_at.desc()).all()
+        
+        logger.info(f"📊 User {current_user.id} has {len(saved_numbers)} saved numbers")
+        
+        results = []
+        for saved in saved_numbers:
+            try:
+                result = SavedNumberResponse(
+                    id=saved.id,
+                    numbers=[saved.number1, saved.number2, saved.number3,
+                            saved.number4, saved.number5, saved.number6],
+                    nickname=saved.nickname,
+                    memo=saved.memo,
+                    is_favorite=saved.is_favorite if saved.is_favorite is not None else False,
+                    recommendation_type=saved.recommendation_type,
+                    created_at=saved.created_at
+                )
+                results.append(result)
+            except Exception as e:
+                logger.error(f"❌ Error serializing SavedNumber ID {saved.id}: {e}")
+                logger.error(f"   Data: is_favorite={saved.is_favorite}, created_at={saved.created_at}")
+                raise
+        
+        return results
+    except Exception as e:
+        logger.error(f"❌ Error in get_saved_numbers: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/saved-numbers/{number_id}")
 async def delete_saved_number(
@@ -716,12 +739,12 @@ async def delete_saved_number(
 @app.put("/api/saved-numbers/{number_id}", response_model=SavedNumberResponse)
 async def update_saved_number(
     number_id: int,
-    request: SavedNumberRequest,
+    request: SavedNumberUpdateRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    저장된 로또 번호 업데이트
+    저장된 로또 번호 업데이트 (부분 수정 가능)
     """
     saved_number = db.query(SavedNumber).filter(
         SavedNumber.id == number_id,
@@ -734,32 +757,40 @@ async def update_saved_number(
             detail="저장된 번호를 찾을 수 없습니다"
         )
     
-    # 번호 유효성 검사
-    for num in request.numbers:
-        if not (1 <= num <= 45):
+    # 번호가 제공된 경우에만 유효성 검사 및 업데이트
+    if request.numbers is not None:
+        # 번호 유효성 검사
+        for num in request.numbers:
+            if not (1 <= num <= 45):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="로또 번호는 1~45 사이여야 합니다"
+                )
+        
+        # 중복 번호 확인
+        if len(set(request.numbers)) != 6:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="로또 번호는 1~45 사이여야 합니다"
+                detail="중복된 번호가 있습니다"
             )
+        
+        # 번호 업데이트
+        saved_number.number1 = request.numbers[0]
+        saved_number.number2 = request.numbers[1]
+        saved_number.number3 = request.numbers[2]
+        saved_number.number4 = request.numbers[3]
+        saved_number.number5 = request.numbers[4]
+        saved_number.number6 = request.numbers[5]
     
-    # 중복 번호 확인
-    if len(set(request.numbers)) != 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="중복된 번호가 있습니다"
-        )
-    
-    # 번호 업데이트
-    saved_number.number1 = request.numbers[0]
-    saved_number.number2 = request.numbers[1]
-    saved_number.number3 = request.numbers[2]
-    saved_number.number4 = request.numbers[3]
-    saved_number.number5 = request.numbers[4]
-    saved_number.number6 = request.numbers[5]
-    saved_number.nickname = request.nickname
-    saved_number.memo = request.memo
-    saved_number.is_favorite = request.is_favorite
-    saved_number.recommendation_type = request.recommendation_type
+    # 다른 필드들도 제공된 경우에만 업데이트
+    if request.nickname is not None:
+        saved_number.nickname = request.nickname
+    if request.memo is not None:
+        saved_number.memo = request.memo
+    if request.is_favorite is not None:
+        saved_number.is_favorite = request.is_favorite
+    if request.recommendation_type is not None:
+        saved_number.recommendation_type = request.recommendation_type
     
     db.commit()
     db.refresh(saved_number)
@@ -1146,34 +1177,59 @@ async def get_latest_draw():
 # -----------------------------
 def auto_update_lotto_data():
     """
-    자동으로 로또 데이터를 업데이트하는 함수
-    매주 토요일 9시 30분에 실행됩니다
+    자동으로 로또 데이터를 업데이트하는 함수 (증분 업데이트)
+    매주 토요일 9시에 실행됩니다
     """
     try:
         logger.info("🔄 자동 로또 데이터 업데이트 시작...")
         
-        # 현재 저장된 마지막 회차 확인
-        current_stats = load_stats()
-        current_last_draw = current_stats.get("last_draw", 0) if current_stats else 0
+        # DB 세션 생성
+        db = SessionLocal()
         
-        # 새로운 데이터 수집
-        freq, last_draw, draws_store = collect_stats(max_draw=None, include_bonus=False)
-        
-        if last_draw > current_last_draw:
-            # 새로운 데이터가 있으면 저장
-            save_stats(freq, last_draw, False, draws_store)
-            new_data_count = last_draw - current_last_draw
-            logger.info(f"✅ 자동 업데이트 완료! 새로운 {new_data_count}개 회차 데이터 추가 (최신: {last_draw}회차)")
-        else:
-            logger.info(f"ℹ️ 새로운 데이터가 없습니다 (현재 최신: {last_draw}회차)")
+        try:
+            # 현재 DB에 저장된 최신 회차 확인
+            from sqlalchemy import func
+            max_draw_in_db = db.query(func.max(WinningNumber.draw_number)).scalar()
+            current_last_draw = max_draw_in_db if max_draw_in_db else 0
+            
+            logger.info(f"📊 현재 DB 최신 회차: {current_last_draw}회")
+            
+            # API에서 최신 회차 확인 (DB 최신 회차부터 검색 시작)
+            latest_draw = get_latest_draw_number(start_from=current_last_draw if current_last_draw > 0 else None)
+            
+            if latest_draw is None:
+                logger.error("❌ 최신 회차를 찾을 수 없습니다")
+                return
+            
+            logger.info(f"🌐 API 최신 회차: {latest_draw}회")
+            
+            if latest_draw > current_last_draw:
+                # 새로운 회차만 동기화 (증분 업데이트)
+                start_draw = current_last_draw + 1
+                logger.info(f"🔄 {start_draw}회 ~ {latest_draw}회 증분 업데이트 시작...")
+                
+                result = sync_all_winning_numbers(db, start_draw, latest_draw)
+                
+                if result.get("success", True):
+                    new_data_count = result.get("success_count", 0)
+                    logger.info(f"✅ 자동 업데이트 완료! 새로운 {new_data_count}개 회차 데이터 추가 ({start_draw}~{latest_draw}회)")
+                else:
+                    logger.error(f"❌ 자동 업데이트 실패: {result.get('error')}")
+            else:
+                logger.info(f"ℹ️ 새로운 데이터가 없습니다 (현재 최신: {latest_draw}회차)")
+                
+        finally:
+            db.close()
             
     except Exception as e:
         logger.error(f"❌ 자동 업데이트 중 오류 발생: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
 
 @app.post("/api/update", response_model=UpdateResponse)
-async def manual_update():
+async def manual_update(db: Session = Depends(get_db)):
     """
-    수동으로 로또 데이터 업데이트
+    수동으로 로또 데이터 업데이트 (증분 업데이트)
     
     Returns:
         업데이트 결과 및 상태 정보
@@ -1181,34 +1237,54 @@ async def manual_update():
     try:
         logger.info("🔄 수동 로또 데이터 업데이트 시작...")
         
-        # 현재 저장된 마지막 회차 확인
-        current_stats = load_stats()
-        current_last_draw = current_stats.get("last_draw", 0) if current_stats else 0
+        # 현재 DB에 저장된 최신 회차 확인
+        from sqlalchemy import func
+        max_draw_in_db = db.query(func.max(WinningNumber.draw_number)).scalar()
+        current_last_draw = max_draw_in_db if max_draw_in_db else 0
         
-        # 새로운 데이터 수집
-        freq, last_draw, draws_store = collect_stats(max_draw=None, include_bonus=False)
+        logger.info(f"📊 현재 DB 최신 회차: {current_last_draw}회")
         
-        # 데이터 저장
-        save_stats(freq, last_draw, False, draws_store)
-        new_data_count = last_draw - current_last_draw
+        # API에서 최신 회차 확인 (DB 최신 회차부터 검색 시작)
+        latest_draw = get_latest_draw_number(start_from=current_last_draw if current_last_draw > 0 else None)
         
-        if new_data_count > 0:
-            message = f"✅ {new_data_count}개의 새로운 회차 데이터가 업데이트되었습니다"
+        if latest_draw is None:
+            raise HTTPException(status_code=500, detail="최신 회차를 찾을 수 없습니다")
+        
+        logger.info(f"🌐 API 최신 회차: {latest_draw}회")
+        
+        new_data_count = 0
+        
+        if latest_draw > current_last_draw:
+            # 새로운 회차만 동기화 (증분 업데이트)
+            start_draw = current_last_draw + 1
+            logger.info(f"🔄 {start_draw}회 ~ {latest_draw}회 증분 업데이트 시작...")
+            
+            result = sync_all_winning_numbers(db, start_draw, latest_draw)
+            
+            if not result.get("success", True):
+                raise HTTPException(status_code=500, detail=result.get("error", "업데이트 실패"))
+            
+            new_data_count = result.get("success_count", 0)
+            message = f"✅ {new_data_count}개의 새로운 회차 데이터가 업데이트되었습니다 ({start_draw}~{latest_draw}회)"
         else:
             message = "ℹ️ 이미 최신 데이터입니다"
         
-        logger.info(f"✅ 수동 업데이트 완료! (최신: {last_draw}회차)")
+        logger.info(f"✅ 수동 업데이트 완료! (최신: {latest_draw}회차)")
         
         return UpdateResponse(
             success=True,
             message=message,
-            last_draw=last_draw,
+            last_draw=latest_draw,
             updated_at=datetime.now().isoformat(),
-            new_data_count=max(0, new_data_count)
+            new_data_count=new_data_count
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ 수동 업데이트 중 오류 발생: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"업데이트 중 오류: {str(e)}")
 
 # -----------------------------
@@ -1217,19 +1293,19 @@ async def manual_update():
 def setup_scheduler():
     """
     자동 업데이트 스케줄러 설정
-    매주 토요일 9시 30분에 실행
+    매주 토요일 9시에 실행
     """
     try:
         # 기존 작업이 있으면 제거
         scheduler.remove_all_jobs()
         
-        # 매주 토요일 9시 30분에 실행
+        # 매주 토요일 9시에 실행
         scheduler.add_job(
             func=auto_update_lotto_data,
             trigger=CronTrigger(
                 day_of_week=5,  # 0=Monday, 5=Saturday
                 hour=21,        # 9 PM
-                minute=30,      # 30분
+                minute=0,       # 정각
                 timezone="Asia/Seoul"
             ),
             id="lotto_auto_update",
@@ -1237,7 +1313,7 @@ def setup_scheduler():
             replace_existing=True
         )
         
-        logger.info("📅 스케줄러 설정 완료: 매주 토요일 오후 9시 30분에 자동 업데이트")
+        logger.info("📅 스케줄러 설정 완료: 매주 토요일 오후 9시에 자동 업데이트")
         
         # 스케줄러 시작
         if not scheduler.running:
@@ -1267,7 +1343,7 @@ if __name__ == "__main__":
     print("📖 API 문서: http://localhost:8000/docs")
     print("🏥 헬스체크: http://localhost:8000/api/health")
     print("🔄 수동 업데이트: http://localhost:8000/api/update")
-    print("📅 자동 업데이트: 매주 토요일 오후 9시 30분\n")
+    print("📅 자동 업데이트: 매주 토요일 오후 9시\n")
     
     try:
         uvicorn.run(app, host="0.0.0.0", port=8000)

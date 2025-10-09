@@ -72,14 +72,15 @@ class TokenManager:
         토큰에서 사용자 ID 추출
         """
         payload = TokenManager.verify_token(token)
-        user_id: int = payload.get("sub")
+        user_id = payload.get("sub")
         if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="토큰에서 사용자 정보를 찾을 수 없습니다",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        return user_id
+        # sub는 문자열로 저장되므로 정수로 변환
+        return int(user_id)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """

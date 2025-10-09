@@ -2,6 +2,7 @@ package com.lotto.app.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -55,6 +57,15 @@ fun SettingsScreen(
         successMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearSuccessMessage()
+        }
+    }
+    
+    // 설정 로드 시 ThemeViewModel 동기화
+    val context = LocalContext.current
+    val isSystemDark = isSystemInDarkTheme()
+    LaunchedEffect(settings) {
+        settings?.let { currentSettings ->
+            themeViewModel.setThemeMode(context, currentSettings.themeMode, isSystemDark)
         }
     }
     
@@ -189,15 +200,20 @@ fun SettingsScreen(
                         }
                         
                         item {
+                            val context = LocalContext.current
+                            val isSystemDark = isSystemInDarkTheme()
+                            
                             ThemeSettingCard(
                                 currentTheme = currentSettings.themeMode,
                                 onThemeChange = { theme ->
+                                    // 백엔드 API 업데이트
                                     viewModel.updateTheme(theme)
+                                    
+                                    // ThemeViewModel 업데이트 (새로운 메서드 사용)
+                                    themeViewModel.setThemeMode(context, theme, isSystemDark)
                                 }
                             )
-                        }
-                        
-                        // 계정 설정
+                        }                        // 계정 설정
                         item {
                             SectionTitle("계정")
                         }
