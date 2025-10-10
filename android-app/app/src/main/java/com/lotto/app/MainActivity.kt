@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -232,10 +234,21 @@ fun LottoApp(
             }
             
             if (isLoggedIn) {
+                // SavedNumberViewModel 인스턴스 생성
+                val savedNumberViewModel: SavedNumberViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return SavedNumberViewModel() as T
+                        }
+                    }
+                )
+                
                 CheckWinningScreen(
                     onNavigateBack = {
                         navController.popBackStack()
-                    }
+                    },
+                    savedNumberViewModel = savedNumberViewModel
                 )
             }
         }

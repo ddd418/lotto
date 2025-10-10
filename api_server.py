@@ -432,8 +432,12 @@ async def get_latest_winning_number(db: Session = Depends(get_db)):
     최신 당첨 번호 조회 (DB 우선, 없으면 API에서 가져옴)
     """
     try:
-        # 최신 회차 번호 추정
-        latest_draw = get_latest_draw_number()
+        # DB에서 현재 최신 회차 조회
+        db_latest = db.query(WinningNumber).order_by(WinningNumber.draw_number.desc()).first()
+        start_from = db_latest.draw_number if db_latest else None
+        
+        # 최신 회차 번호 추정 (DB 최신 회차부터 검색)
+        latest_draw = get_latest_draw_number(start_from=start_from)
         
         if not latest_draw:
             raise HTTPException(

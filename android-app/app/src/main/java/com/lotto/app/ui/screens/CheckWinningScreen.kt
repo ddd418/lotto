@@ -1,11 +1,13 @@
 package com.lotto.app.ui.screens
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,10 +23,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lotto.app.viewmodel.WinningCheckViewModel
+import com.lotto.app.viewmodel.SavedNumberViewModel
+import com.lotto.app.data.model.SavedNumberResponse
 import java.text.NumberFormat
 import java.util.*
+import kotlinx.coroutines.delay
 
 /**
  * 당첨 확인 화면 (백엔드 API 연동)
@@ -33,7 +39,8 @@ import java.util.*
 @Composable
 fun CheckWinningScreen(
     onNavigateBack: () -> Unit,
-    viewModel: WinningCheckViewModel = viewModel()
+    viewModel: WinningCheckViewModel = viewModel(),
+    savedNumberViewModel: SavedNumberViewModel = viewModel()
 ) {
     val checkResult by viewModel.checkResult.collectAsState()
     val latestWinning by viewModel.latestWinning.collectAsState()
@@ -41,8 +48,20 @@ fun CheckWinningScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     
+    // 저장된 번호 목록
+    val savedNumbers by savedNumberViewModel.savedNumbers.collectAsState()
+    val savedNumbersLoading by savedNumberViewModel.isLoading.collectAsState()
+    
     var selectedNumbers by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var showHistory by remember { mutableStateOf(false) }
+    var showSavedNumbersDialog by remember { mutableStateOf(false) }
+    var showDrawAnimation by remember { mutableStateOf(false) }
+    val selectedSavedNumber = remember { mutableStateOf<SavedNumberResponse?>(null) }
+    
+    // 저장된 번호 로드
+    LaunchedEffect(Unit) {
+        savedNumberViewModel.loadSavedNumbers()
+    }
     
     val snackbarHostState = remember { SnackbarHostState() }
     
@@ -155,6 +174,24 @@ fun CheckWinningScreen(
                             
                             Spacer(modifier = Modifier.height(16.dp))
                             
+                            // 내 저장번호 불러오기 버튼
+                            OutlinedButton(
+                                onClick = {
+                                    savedNumberViewModel.loadSavedNumbers()
+                                    showSavedNumbersDialog = true
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+                                Icon(Icons.Default.List, "내 번호")
+                                Spacer(Modifier.width(4.dp))
+                                Text("내 저장번호 불러오기")
+                            }
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -170,27 +207,14 @@ fun CheckWinningScreen(
                                 
                                 Button(
                                     onClick = {
-                                        latestWinning?.let {
-                                            viewModel.checkWinning(
-                                                selectedNumbers.sorted(),
-                                                it.drawNumber
-                                            )
-                                        }
+                                        showDrawAnimation = true
                                     },
                                     modifier = Modifier.weight(1f),
                                     enabled = selectedNumbers.size == 6 && !isLoading && latestWinning != null
                                 ) {
-                                    if (isLoading) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(16.dp),
-                                            strokeWidth = 2.dp,
-                                            color = Color.White
-                                        )
-                                    } else {
-                                        Icon(Icons.Default.CheckCircle, "확인")
-                                    }
+                                    Icon(Icons.Default.PlayArrow, "추첨")
                                     Spacer(Modifier.width(4.dp))
-                                    Text("당첨 확인")
+                                    Text("가상 추첨")
                                 }
                             }
                         }
@@ -221,6 +245,43 @@ fun CheckWinningScreen(
                 }
             }
         }
+    }
+    
+    // 저장된 번호 선택 다이얼로그
+    if (showSavedNumbersDialog) {
+        SavedNumbersSelectionDialog(
+            savedNumbers = savedNumbers,
+            isLoading = savedNumbersLoading,
+            onNumberSelected = { savedNumber ->
+                selectedNumbers = savedNumber.numbers.toSet()
+                selectedSavedNumber.value = savedNumber
+                showSavedNumbersDialog = false
+            },
+            onDismiss = { showSavedNumbersDialog = false }
+        )
+    }
+    
+    // 가상 추첨 애니메이션 다이얼로그
+    if (showDrawAnimation) {
+        VirtualDrawAnimationDialog(
+            userNumbers = selectedNumbers.sorted(),
+            winningNumbers = latestWinning?.numbers ?: emptyList(),
+            bonusNumber = latestWinning?.bonusNumber ?: 0,
+            savedNumberNickname = selectedSavedNumber.value?.nickname,
+            onAnimationComplete = {
+                latestWinning?.let {
+                    viewModel.checkWinning(
+                        selectedNumbers.sorted(),
+                        it.drawNumber
+                    )
+                }
+                showDrawAnimation = false
+                selectedSavedNumber.value = null
+            },
+            onDismiss = {
+                showDrawAnimation = false
+            }
+        )
     }
 }
 
@@ -713,4 +774,413 @@ fun HistoryItemCard(item: com.lotto.app.data.model.WinningHistoryItem) {
 fun formatCurrency(amount: Long): String {
     val formatter = NumberFormat.getCurrencyInstance(Locale.KOREA)
     return formatter.format(amount)
+}
+
+/**
+ * 저장된 번호 선택 다이얼로그
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SavedNumbersSelectionDialog(
+    savedNumbers: List<SavedNumberResponse>,
+    isLoading: Boolean,
+    onNumberSelected: (SavedNumberResponse) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "💾 저장된 번호 선택",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (savedNumbers.isEmpty()) {
+                Text(
+                    text = "저장된 번호가 없습니다.\n추천 화면에서 번호를 저장해보세요!",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(
+                        items = savedNumbers,
+                        key = { it.id }
+                    ) { savedNumber ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            onClick = { onNumberSelected(savedNumber) },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = savedNumber.nickname ?: "번호 ${savedNumber.id}",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (savedNumber.isFavorite) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = "즐겨찾기",
+                                            tint = Color(0xFFFFD700),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    savedNumber.numbers.forEach { number ->
+                                        LottoBall(number = number, size = 30.dp)
+                                    }
+                                }
+                                
+                                savedNumber.memo?.let { memo ->
+                                    if (memo.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = memo,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("닫기")
+            }
+        }
+    )
+}
+
+/**
+ * 가상 추첨 애니메이션 다이얼로그
+ */
+@Composable
+fun VirtualDrawAnimationDialog(
+    userNumbers: List<Int>,
+    winningNumbers: List<Int>,
+    bonusNumber: Int,
+    savedNumberNickname: String?,
+    onAnimationComplete: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var revealedNumbers by remember { mutableStateOf<List<Int>>(emptyList()) }
+    var showResult by remember { mutableStateOf(false) }
+    
+    val matchedNumbers = userNumbers.filter { it in winningNumbers }
+    val hasBonus = bonusNumber in userNumbers && bonusNumber !in winningNumbers
+    val matchCount = matchedNumbers.size
+    
+    // 애니메이션 진행
+    LaunchedEffect(Unit) {
+        // 1. 준비 단계 (1초)
+        delay(1000)
+        
+        // 2. 당첨 번호 하나씩 공개 (각 0.8초)
+        winningNumbers.forEach { number ->
+            revealedNumbers = revealedNumbers + number
+            delay(800)
+        }
+        
+        // 3. 보너스 번호 공개 (1초)
+        delay(500)
+        revealedNumbers = revealedNumbers + bonusNumber
+        delay(1000)
+        
+        // 4. 결과 표시
+        showResult = true
+        delay(500)
+        
+        // 5. 3초 후 자동으로 결과 확인
+        delay(3000)
+        onAnimationComplete()
+    }
+    
+    AlertDialog(
+        onDismissRequest = { },  // 애니메이션 중에는 닫기 불가
+        title = null,
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // 제목
+                Text(
+                    text = if (showResult) "🎊 추첨 결과" else "🎰 추첨 중...",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                
+                savedNumberNickname?.let {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "\"$it\"",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // 내 번호
+                Text(
+                    text = "내 번호",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    userNumbers.forEach { number ->
+                        val isMatched = showResult && number in matchedNumbers
+                        val isBonusMatch = showResult && hasBonus && number == bonusNumber
+                        
+                        AnimatedLottoBall(
+                            number = number,
+                            size = 40.dp,
+                            isHighlighted = isMatched || isBonusMatch,
+                            highlightColor = if (isBonusMatch) Color(0xFFFF6B6B) else Color(0xFF4CAF50)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                // 당첨 번호
+                Text(
+                    text = "당첨 번호",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    winningNumbers.forEach { number ->
+                        AnimatedRevealBall(
+                            number = number,
+                            isRevealed = number in revealedNumbers,
+                            size = 40.dp
+                        )
+                    }
+                    
+                    if (revealedNumbers.size > winningNumbers.size) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "보너스",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        )
+                        
+                        AnimatedRevealBall(
+                            number = bonusNumber,
+                            isRevealed = bonusNumber in revealedNumbers,
+                            size = 40.dp,
+                            isBonus = true
+                        )
+                    }
+                }
+                
+                // 결과 메시지
+                AnimatedVisibility(
+                    visible = showResult,
+                    enter = fadeIn() + scaleIn()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(top = 32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        val resultMessage = when {
+                            matchCount == 6 -> "🎉🎉🎉 1등 당첨! 🎉🎉🎉"
+                            matchCount == 5 && hasBonus -> "🎊 2등 당첨! 🎊"
+                            matchCount == 5 -> "🎁 3등 당첨! 🎁"
+                            matchCount == 4 -> "✨ 4등 당첨! ✨"
+                            matchCount == 3 -> "🌟 5등 당첨! 🌟"
+                            else -> "아쉽게도 낙첨입니다 😢"
+                        }
+                        
+                        Text(
+                            text = resultMessage,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            color = if (matchCount >= 3) Color(0xFFFF6B35) else MaterialTheme.colorScheme.onSurface
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = "${matchCount}개 일치" + if (hasBonus) " + 보너스" else "",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (showResult) {
+                Button(
+                    onClick = onAnimationComplete,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text("상세 결과 보기")
+                }
+            }
+        },
+        dismissButton = {
+            if (showResult) {
+                TextButton(onClick = onDismiss) {
+                    Text("닫기")
+                }
+            }
+        }
+    )
+}
+
+/**
+ * 애니메이션 하이라이트 공
+ */
+@Composable
+fun AnimatedLottoBall(
+    number: Int,
+    size: Dp = 40.dp,
+    isHighlighted: Boolean = false,
+    highlightColor: Color = Color(0xFF4CAF50)
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (isHighlighted) 1.2f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "ball_scale"
+    )
+    
+    val color = when {
+        isHighlighted -> highlightColor
+        number <= 10 -> Color(0xFFFBC02D)
+        number <= 20 -> Color(0xFF42A5F5)
+        number <= 30 -> Color(0xFFEF5350)
+        number <= 40 -> Color(0xFFBDBDBD)
+        else -> Color(0xFF66BB6A)
+    }
+    
+    Box(
+        modifier = Modifier
+            .size(size * scale)
+            .clip(CircleShape)
+            .background(color),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = number.toString(),
+            color = Color.White,
+            fontWeight = if (isHighlighted) FontWeight.ExtraBold else FontWeight.Bold,
+            fontSize = (size.value * 0.4f).sp
+        )
+    }
+}
+
+/**
+ * 공개 애니메이션 공
+ */
+@Composable
+fun AnimatedRevealBall(
+    number: Int,
+    isRevealed: Boolean,
+    size: Dp = 40.dp,
+    isBonus: Boolean = false
+) {
+    val alpha by animateFloatAsState(
+        targetValue = if (isRevealed) 1f else 0.3f,
+        animationSpec = tween(durationMillis = 500),
+        label = "ball_alpha"
+    )
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isRevealed) 1f else 0.8f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "ball_reveal_scale"
+    )
+    
+    val color = when {
+        isBonus -> Color(0xFFFF6B6B)
+        number <= 10 -> Color(0xFFFBC02D)
+        number <= 20 -> Color(0xFF42A5F5)
+        number <= 30 -> Color(0xFFEF5350)
+        number <= 40 -> Color(0xFFBDBDBD)
+        else -> Color(0xFF66BB6A)
+    }
+    
+    Box(
+        modifier = Modifier
+            .size(size * scale)
+            .clip(CircleShape)
+            .background(color.copy(alpha = alpha)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (isRevealed) {
+            Text(
+                text = number.toString(),
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = (size.value * 0.4f).sp
+            )
+        } else {
+            Text(
+                text = "?",
+                color = Color.White.copy(alpha = 0.5f),
+                fontWeight = FontWeight.Bold,
+                fontSize = (size.value * 0.4f).sp
+            )
+        }
+    }
 }
