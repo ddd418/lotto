@@ -628,6 +628,17 @@ fun WinningHistoryView(
         onRefresh()
     }
     
+    // 일치 개수 많은 순으로 정렬
+    val sortedHistory = remember(history) {
+        history.sortedWith(
+            compareByDescending<com.lotto.app.data.model.WinningHistoryItem> { it.matchedCount }
+                .thenByDescending { it.hasBonus }
+                .thenByDescending { it.checkedAt }
+        ).also {
+            android.util.Log.d("WinningHistoryView", "📊 당첨 내역 정렬: ${history.size}개 -> 일치 개수 많은 순")
+        }
+    }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -674,7 +685,7 @@ fun WinningHistoryView(
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(history) { item ->
+                items(sortedHistory) { item ->
                     HistoryItemCard(item)
                 }
             }
