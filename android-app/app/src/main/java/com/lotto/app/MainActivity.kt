@@ -31,6 +31,7 @@ import com.lotto.app.ui.theme.LottoAppTheme
 import com.lotto.app.viewmodel.AuthViewModel
 import com.lotto.app.viewmodel.AuthViewModelFactory
 import com.lotto.app.viewmodel.LottoViewModel
+import com.lotto.app.viewmodel.SavedNumberViewModel
 import com.lotto.app.viewmodel.ThemeViewModel
 
 /**
@@ -178,8 +179,11 @@ fun LottoApp(
         
         // 추천 화면
         composable(Screen.Recommend.route) {
+            val savedNumberViewModel: SavedNumberViewModel = viewModel()
+            
             RecommendScreen(
                 viewModel = viewModel,
+                savedNumberViewModel = savedNumberViewModel,
                 onNavigateBack = {
                     navController.popBackStack()
                 }
@@ -198,20 +202,42 @@ fun LottoApp(
         
         // 저장된 번호 화면
         composable(Screen.SavedNumbers.route) {
-            SavedNumbersScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
+            // 로그인 체크
+            LaunchedEffect(isLoggedIn) {
+                if (!isLoggedIn) {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.SavedNumbers.route) { inclusive = true }
+                    }
                 }
-            )
+            }
+            
+            if (isLoggedIn) {
+                SavedNumbersScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
         }
         
         // 당첨 확인 화면
         composable(Screen.CheckWinning.route) {
-            CheckWinningScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
+            // 로그인 체크
+            LaunchedEffect(isLoggedIn) {
+                if (!isLoggedIn) {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.CheckWinning.route) { inclusive = true }
+                    }
                 }
-            )
+            }
+            
+            if (isLoggedIn) {
+                CheckWinningScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
         }
         
         // 설정 화면

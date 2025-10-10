@@ -1126,35 +1126,63 @@ async def recommend_numbers(request: RecommendRequest):
         raise HTTPException(status_code=500, detail=f"번호 생성 중 오류: {str(e)}")
 
 @app.get("/api/stats", response_model=StatsResponse)
-async def get_statistics():
+async def get_statistics(db: Session = Depends(get_db)):
     """
-    로또 번호 통계 조회
+    로또 번호 통계 조회 (DB에서 직접 계산)
     
     Returns:
         각 번호의 출현 빈도 및 상위 번호 정보
     """
-    stats = load_stats()
-    if not stats:
-        raise HTTPException(
-            status_code=404,
-            detail="통계 데이터가 없습니다. /api/update를 먼저 호출하세요."
+    try:
+        # DB에서 모든 당첨 번호 조회
+        winning_numbers = db.query(WinningNumber).order_by(WinningNumber.draw_number.desc()).all()
+        
+        if not winning_numbers:
+            raise HTTPException(
+                status_code=404,
+                detail="DB에 당첨 번호 데이터가 없습니다. 먼저 데이터를 동기화하세요."
+            )
+        
+        # 최신 회차
+        latest_draw = winning_numbers[0].draw_number
+        
+        # 번호 출현 빈도 계산
+        frequency = Counter()
+        for winning in winning_numbers:
+            # 6개 번호를 리스트로 변환 (number1~number6 필드 사용)
+            numbers = [
+                winning.number1,
+                winning.number2,
+                winning.number3,
+                winning.number4,
+                winning.number5,
+                winning.number6
+            ]
+            frequency.update(numbers)
+            
+            # 보너스 번호도 포함 (선택적)
+            # frequency[winning.bonus_number] += 1
+        
+        # Dict[str, int] 형식으로 변환
+        freq_dict = {str(num): count for num, count in frequency.items()}
+        
+        # 상위 10개 번호 추출
+        sorted_freq = sorted(frequency.items(), key=lambda x: (-x[1], x[0]))
+        top_10 = [{"number": num, "count": count} for num, count in sorted_freq[:10]]
+        
+        return StatsResponse(
+            success=True,
+            last_draw=latest_draw,
+            generated_at=datetime.now().isoformat(),
+            include_bonus=False,
+            frequency=freq_dict,
+            top_10=top_10
         )
-    
-    freq = stats.get("frequency", {})
-    
-    # 상위 10개 번호 추출
-    freq_items = [(int(k) if k.isdigit() else k, v) for k, v in freq.items()]
-    sorted_freq = sorted(freq_items, key=lambda x: (-x[1], x[0]))
-    top_10 = [{"number": num, "count": count} for num, count in sorted_freq[:10]]
-    
-    return StatsResponse(
-        success=True,
-        last_draw=stats.get("last_draw", 0),
-        generated_at=stats.get("generated_at", ""),
-        include_bonus=stats.get("include_bonus", False),
-        frequency=freq,
-        top_10=top_10
-    )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"통계 조회 중 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"통계 조회 중 오류: {str(e)}")
 
 @app.get("/api/latest-draw")
 async def get_latest_draw():

@@ -24,8 +24,7 @@ import com.kakao.sdk.template.model.Button
 import com.kakao.sdk.template.model.Content
 import com.kakao.sdk.template.model.FeedTemplate
 import com.kakao.sdk.template.model.Link
-import com.lotto.app.data.local.SavedNumbersManager
-import com.lotto.app.data.model.SavedLottoNumber
+import com.lotto.app.data.model.RecommendResponse
 import com.lotto.app.ui.components.LoadingIndicator
 import com.lotto.app.ui.components.LottoSetCard
 import com.lotto.app.viewmodel.LottoViewModel
@@ -38,9 +37,13 @@ import com.lotto.app.viewmodel.UiState
 @Composable
 fun RecommendScreen(
     viewModel: LottoViewModel,
+    savedNumberViewModel: com.lotto.app.viewmodel.SavedNumberViewModel,
     onNavigateBack: () -> Unit
 ) {
     val recommendState by viewModel.recommendState.collectAsStateWithLifecycle()
+    val isLoading by savedNumberViewModel.isLoading.collectAsStateWithLifecycle()
+    val successMessage by savedNumberViewModel.successMessage.collectAsStateWithLifecycle()
+    val error by savedNumberViewModel.error.collectAsStateWithLifecycle()
     var numberOfSets by remember { mutableIntStateOf(5) }
     var selectedMode by remember { mutableStateOf("ai") }
     
@@ -100,11 +103,32 @@ fun RecommendScreen(
                     LoadingIndicator(message = "AI가 번호를 분석하는 중...")
                 }
                 
-                is UiState.Success -> {
-                    val response = state.data
+                is UiState.Success<*> -> {
+                    val response = state.data as? RecommendResponse
+                    if (response == null) {
+                        Text(
+                            text = "데이터 형식이 올바르지 않습니다",
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                        return@Box
+                    }
+                    
                     val context = LocalContext.current
-                    val savedNumbersManager = remember { SavedNumbersManager(context) }
                     var showSaveDialog by remember { mutableStateOf<List<Int>?>(null) }
+                    var memoText by remember { mutableStateOf("") }
+                    
+                    // 저장 결과 토스트
+                    LaunchedEffect(successMessage) {
+                        successMessage?.let { message ->
+                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    
+                    LaunchedEffect(error) {
+                        error?.let { errorMsg ->
+                            Toast.makeText(context, "저장 실패: $errorMsg", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                     
                     LazyColumn(
                         modifier = Modifier
@@ -248,18 +272,19 @@ fun RecommendScreen(
                     
                     // 저장 다이얼로그
                     showSaveDialog?.let { numbers ->
-                        var memo by remember { mutableStateOf("") }
-                        
                         AlertDialog(
-                            onDismissRequest = { showSaveDialog = null },
+                            onDismissRequest = { 
+                                showSaveDialog = null
+                                memoText = ""
+                            },
                             title = { Text("번호 저장") },
                             text = {
                                 Column {
                                     Text("이 번호를 저장하시겠습니까?")
                                     Spacer(modifier = Modifier.height(16.dp))
                                     TextField(
-                                        value = memo,
-                                        onValueChange = { memo = it },
+                                        value = memoText,
+                                        onValueChange = { memoText = it },
                                         label = { Text("메모 (선택사항)") },
                                         placeholder = { Text("예: 생일, 행운의 번호") },
                                         modifier = Modifier.fillMaxWidth(),
@@ -270,23 +295,24 @@ fun RecommendScreen(
                             confirmButton = {
                                 TextButton(
                                     onClick = {
-                                        val savedNumber = SavedLottoNumber(
-                                            id = System.currentTimeMillis().toString(),
+                                        // SavedNumberViewModel 사용하여 서버에 저장
+                                        savedNumberViewModel.saveNumber(
                                             numbers = numbers,
-                                            savedAt = System.currentTimeMillis(),
-                                            memo = memo,
-                                            drawNumber = response.lastDraw
+                                            nickname = memoText.ifBlank { "AI 추천 번호" },
+                                            memo = null
                                         )
-                                        savedNumbersManager.saveNumber(savedNumber)
-                                        Toast.makeText(context, "번호가 저장되었습니다!", Toast.LENGTH_SHORT).show()
                                         showSaveDialog = null
+                                        memoText = ""
                                     }
                                 ) {
                                     Text("저장")
                                 }
                             },
                             dismissButton = {
-                                TextButton(onClick = { showSaveDialog = null }) {
+                                TextButton(onClick = { 
+                                    showSaveDialog = null
+                                    memoText = ""
+                                }) {
                                     Text("취소")
                                 }
                             }
