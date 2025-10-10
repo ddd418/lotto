@@ -1279,21 +1279,24 @@ fun DrawResultsSummaryDialog(
 ) {
     // 명확한 정렬: matchedCount 내림차순 -> hasBonus 내림차순 -> rank 오름차순 (null은 뒤로)
     val sortedResults = remember(results) {
-        results.sortedWith(
+        android.util.Log.d("DrawResults", "📊 정렬 시작 - 총 ${results.size}개 결과")
+        android.util.Log.d("DrawResults", "📊 정렬 전 결과:")
+        results.forEachIndexed { index, result ->
+            android.util.Log.d("DrawResults", "  [$index] ${result.nickname}: matched=${result.matchedCount}, bonus=${result.hasBonus}, rank=${result.rank}")
+        }
+        
+        val sorted = results.sortedWith(
             compareByDescending<DrawResult> { it.matchedCount }
                 .thenByDescending { it.hasBonus }
                 .thenBy { it.rank ?: Int.MAX_VALUE }
-        ).also {
-            // 정렬 결과 로그
-            android.util.Log.d("DrawResults", "📊 정렬 전 결과:")
-            results.forEachIndexed { index, result ->
-                android.util.Log.d("DrawResults", "  [$index] ${result.nickname}: ${result.matchedCount}개, bonus=${result.hasBonus}, rank=${result.rank}")
-            }
-            android.util.Log.d("DrawResults", "📊 정렬 후 결과:")
-            it.forEachIndexed { index, result ->
-                android.util.Log.d("DrawResults", "  [$index] ${result.nickname}: ${result.matchedCount}개, bonus=${result.hasBonus}, rank=${result.rank}")
-            }
+        )
+        
+        android.util.Log.d("DrawResults", "📊 정렬 후 결과:")
+        sorted.forEachIndexed { index, result ->
+            android.util.Log.d("DrawResults", "  [$index] ${result.nickname}: matched=${result.matchedCount}, bonus=${result.hasBonus}, rank=${result.rank}")
         }
+        
+        sorted
     }
     
     AlertDialog(
