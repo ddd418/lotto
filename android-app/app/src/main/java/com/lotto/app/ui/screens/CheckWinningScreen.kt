@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -116,6 +118,7 @@ fun CheckWinningScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
                         .padding(16.dp)
                 ) {
                     // 최신 당첨 정보
@@ -130,7 +133,7 @@ fun CheckWinningScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                     
-                    // 번호 선택기
+                    // 저장번호 불러오기
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
@@ -138,83 +141,67 @@ fun CheckWinningScreen(
                         )
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "확인할 번호 선택 (6개)",
+                                text = "저장된 번호로 당첨 확인",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
-                            )
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            Text(
-                                text = "${selectedNumbers.size}/6 선택됨",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            // 번호 그리드
-                            NumberGrid(
-                                selectedNumbers = selectedNumbers,
-                                onNumberClick = { number ->
-                                    selectedNumbers = if (selectedNumbers.contains(number)) {
-                                        selectedNumbers - number
-                                    } else {
-                                        if (selectedNumbers.size < 6) {
-                                            selectedNumbers + number
-                                        } else {
-                                            selectedNumbers
-                                        }
-                                    }
-                                }
                             )
                             
                             Spacer(modifier = Modifier.height(16.dp))
                             
                             // 내 저장번호 불러오기 버튼
-                            OutlinedButton(
+                            Button(
                                 onClick = {
                                     savedNumberViewModel.loadSavedNumbers()
                                     showSavedNumbersDialog = true
                                 },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.primary
-                                )
+                                modifier = Modifier.fillMaxWidth()
                             ) {
                                 Icon(Icons.Default.List, "내 번호")
-                                Spacer(Modifier.width(4.dp))
+                                Spacer(Modifier.width(8.dp))
                                 Text("내 저장번호 불러오기")
                             }
                             
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = { selectedNumbers = emptySet() },
-                                    modifier = Modifier.weight(1f)
+                            if (selectedNumbers.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                
+                                // 선택된 번호 표시
+                                Text(
+                                    text = "선택된 번호",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center
                                 ) {
-                                    Icon(Icons.Default.Clear, "초기화")
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("초기화")
+                                    selectedNumbers.sorted().forEach { number ->
+                                        LottoBall(
+                                            number = number,
+                                            isBonus = false,
+                                            modifier = Modifier.padding(horizontal = 2.dp)
+                                        )
+                                    }
                                 }
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
                                 
                                 Button(
                                     onClick = {
                                         showDrawAnimation = true
                                     },
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.fillMaxWidth(),
                                     enabled = selectedNumbers.size == 6 && !isLoading && latestWinning != null
                                 ) {
                                     Icon(Icons.Default.PlayArrow, "추첨")
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("가상 추첨")
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("가상 추첨 시작!")
                                 }
                             }
                         }
@@ -352,89 +339,14 @@ fun LatestWinningCard(
 }
 
 /**
- * 번호 그리드 (1-45)
- */
-@Composable
-fun NumberGrid(
-    selectedNumbers: Set<Int>,
-    onNumberClick: (Int) -> Unit
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        for (row in 0..8) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                for (col in 0..4) {
-                    val number = row * 5 + col + 1
-                    if (number <= 45) {
-                        NumberButton(
-                            number = number,
-                            isSelected = selectedNumbers.contains(number),
-                            onClick = { onNumberClick(number) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    } else {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * 번호 버튼
- */
-@Composable
-fun NumberButton(
-    number: Int,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val backgroundColor = when {
-        isSelected -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.surface
-    }
-    
-    val contentColor = when {
-        isSelected -> MaterialTheme.colorScheme.onPrimary
-        else -> MaterialTheme.colorScheme.onSurface
-    }
-    
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier
-            .aspectRatio(1f),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = backgroundColor,
-            contentColor = contentColor
-        ),
-        border = BorderStroke(
-            1.dp,
-            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-        ),
-        contentPadding = PaddingValues(0.dp)
-    ) {
-        Text(
-            text = number.toString(),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-        )
-    }
-}
-
-/**
  * 로또 번호 공
  */
 @Composable
 fun LottoBall(
     number: Int,
     size: Dp = 40.dp,
-    isBonus: Boolean = false
+    isBonus: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     val color = when {
         isBonus -> Color(0xFFFF9800) // 보너스는 오렌지색
@@ -446,7 +358,7 @@ fun LottoBall(
     }
     
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(size)
             .clip(CircleShape)
             .background(
