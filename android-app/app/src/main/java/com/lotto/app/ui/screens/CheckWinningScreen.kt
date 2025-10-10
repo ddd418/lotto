@@ -35,6 +35,17 @@ import java.util.*
 import kotlinx.coroutines.delay
 
 /**
+ * 당첨 결과 데이터 클래스
+ */
+data class DrawResult(
+    val nickname: String,
+    val numbers: List<Int>,
+    val matchedCount: Int,
+    val hasBonus: Boolean,
+    val rank: Int?
+)
+
+/**
  * 당첨 확인 화면 (백엔드 API 연동)
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,7 +69,10 @@ fun CheckWinningScreen(
     var showHistory by remember { mutableStateOf(false) }
     var showSavedNumbersDialog by remember { mutableStateOf(false) }
     var showDrawAnimation by remember { mutableStateOf(false) }
-    val selectedSavedNumber = remember { mutableStateOf<SavedNumberResponse?>(null) }
+    var selectedSavedNumbers by remember { mutableStateOf<List<SavedNumberResponse>>(emptyList()) }
+    var currentAnimationIndex by remember { mutableIntStateOf(0) }
+    var showResultsSummary by remember { mutableStateOf(false) }
+    var drawResults by remember { mutableStateOf<List<DrawResult>>(emptyList()) }
     
     // 저장된 번호 로드
     LaunchedEffect(Unit) {
@@ -162,31 +176,68 @@ fun CheckWinningScreen(
                             ) {
                                 Icon(Icons.Default.List, "내 번호")
                                 Spacer(Modifier.width(8.dp))
-                                Text("내 저장번호 불러오기")
+                                Text("내 저장번호 불러오기 (${selectedSavedNumbers.size}개 선택)")
                             }
                             
-                            if (selectedNumbers.isNotEmpty()) {
+                            if (selectedSavedNumbers.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(16.dp))
                                 
-                                // 선택된 번호 표시
+                                // 선택된 저장번호 목록
                                 Text(
-                                    text = "선택된 번호",
+                                    text = "선택된 번호 목록",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 
                                 Spacer(modifier = Modifier.height(8.dp))
                                 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    selectedNumbers.sorted().forEach { number ->
-                                        LottoBall(
-                                            number = number,
-                                            isBonus = false,
-                                            modifier = Modifier.padding(horizontal = 2.dp)
+                                selectedSavedNumbers.forEach { savedNumber ->
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer
                                         )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(12.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = savedNumber.nickname ?: "번호 ${savedNumber.id}",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    savedNumber.numbers.forEach { number ->
+                                                        LottoBall(
+                                                            number = number,
+                                                            size = 28.dp
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            
+                                            IconButton(
+                                                onClick = {
+                                                    selectedSavedNumbers = selectedSavedNumbers.filter { it.id != savedNumber.id }
+                                                }
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Close,
+                                                    "제거",
+                                                    tint = MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                                 
@@ -194,14 +245,20 @@ fun CheckWinningScreen(
                                 
                                 Button(
                                     onClick = {
+                                        android.util.Log.d("CheckWinningScreen", "🎬 순차 추첨 시작: ${selectedSavedNumbers.size}개 번호")
+                                        selectedSavedNumbers.forEachIndexed { index, number ->
+                                            android.util.Log.d("CheckWinningScreen", "  [$index] ${number.nickname}: ${number.numbers}")
+                                        }
+                                        drawResults = emptyList()
+                                        currentAnimationIndex = 0
                                         showDrawAnimation = true
                                     },
                                     modifier = Modifier.fillMaxWidth(),
-                                    enabled = selectedNumbers.size == 6 && !isLoading && latestWinning != null
+                                    enabled = !isLoading && latestWinning != null
                                 ) {
                                     Icon(Icons.Default.PlayArrow, "추첨")
                                     Spacer(Modifier.width(8.dp))
-                                    Text("가상 추첨 시작!")
+                                    Text("${selectedSavedNumbers.size}개 번호 순차 추첨 시작!")
                                 }
                             }
                         }
@@ -238,35 +295,79 @@ fun CheckWinningScreen(
     if (showSavedNumbersDialog) {
         SavedNumbersSelectionDialog(
             savedNumbers = savedNumbers,
+            selectedSavedNumbers = selectedSavedNumbers,
             isLoading = savedNumbersLoading,
-            onNumberSelected = { savedNumber ->
-                selectedNumbers = savedNumber.numbers.toSet()
-                selectedSavedNumber.value = savedNumber
-                showSavedNumbersDialog = false
+            onSelectionChanged = { selected ->
+                selectedSavedNumbers = selected
             },
             onDismiss = { showSavedNumbersDialog = false }
         )
     }
     
     // 가상 추첨 애니메이션 다이얼로그
-    if (showDrawAnimation) {
-        VirtualDrawAnimationDialog(
-            userNumbers = selectedNumbers.sorted(),
-            winningNumbers = latestWinning?.numbers ?: emptyList(),
-            bonusNumber = latestWinning?.bonusNumber ?: 0,
-            savedNumberNickname = selectedSavedNumber.value?.nickname,
-            onAnimationComplete = {
-                latestWinning?.let {
-                    viewModel.checkWinning(
-                        selectedNumbers.sorted(),
-                        it.drawNumber
+    if (showDrawAnimation && selectedSavedNumbers.isNotEmpty() && currentAnimationIndex < selectedSavedNumbers.size) {
+        val currentSavedNumber = selectedSavedNumbers[currentAnimationIndex]
+        // key를 사용해서 매번 새로운 인스턴스로 생성 (애니메이션 초기화)
+        key(currentAnimationIndex) {
+            VirtualDrawAnimationDialog(
+                userNumbers = currentSavedNumber.numbers.sorted(),
+                winningNumbers = latestWinning?.numbers ?: emptyList(),
+                bonusNumber = latestWinning?.bonusNumber ?: 0,
+                savedNumberNickname = currentSavedNumber.nickname,
+                currentIndex = currentAnimationIndex + 1,
+                totalCount = selectedSavedNumbers.size,
+                onAnimationComplete = { matchedCount, hasBonus, rank ->
+                    // 백엔드에 당첨 확인 결과 저장
+                    latestWinning?.let { winning ->
+                        viewModel.checkWinning(
+                            numbers = currentSavedNumber.numbers,
+                            drawNumber = winning.drawNumber
+                        )
+                        android.util.Log.d("CheckWinningScreen", "💾 백엔드에 당첨 결과 저장: ${currentSavedNumber.nickname}")
+                    }
+                    
+                    // 결과 저장
+                    val newResult = DrawResult(
+                        nickname = currentSavedNumber.nickname ?: "번호 ${currentSavedNumber.id}",
+                        numbers = currentSavedNumber.numbers,
+                        matchedCount = matchedCount,
+                        hasBonus = hasBonus,
+                        rank = rank
                     )
+                    drawResults = drawResults + newResult
+                    
+                    android.util.Log.d("CheckWinningScreen", "🎯 결과 추가: ${newResult.nickname}, matched=${matchedCount}, total results=${drawResults.size}")
+                    
+                    // 다음 번호로 이동 또는 완료
+                    if (currentAnimationIndex + 1 < selectedSavedNumbers.size) {
+                        currentAnimationIndex = currentAnimationIndex + 1
+                        android.util.Log.d("CheckWinningScreen", "➡️ 다음 번호로 이동: ${currentAnimationIndex + 1}/${selectedSavedNumbers.size}")
+                    } else {
+                        android.util.Log.d("CheckWinningScreen", "✅ 모든 추첨 완료! 총 ${drawResults.size}개 결과")
+                        showDrawAnimation = false
+                        currentAnimationIndex = 0
+                        showResultsSummary = true
+                        // 내역 새로고침
+                        viewModel.loadHistory()
+                    }
+                },
+                onDismiss = {
+                    android.util.Log.d("CheckWinningScreen", "❌ 애니메이션 취소됨")
+                    showDrawAnimation = false
+                    currentAnimationIndex = 0
+                    drawResults = emptyList()
                 }
-                showDrawAnimation = false
-                selectedSavedNumber.value = null
-            },
+            )
+        }
+    }
+    
+    // 전체 결과 요약 다이얼로그
+    if (showResultsSummary && drawResults.isNotEmpty()) {
+        DrawResultsSummaryDialog(
+            results = drawResults,
             onDismiss = {
-                showDrawAnimation = false
+                showResultsSummary = false
+                drawResults = emptyList()
             }
         )
     }
@@ -695,15 +796,16 @@ fun formatCurrency(amount: Long): String {
 @Composable
 fun SavedNumbersSelectionDialog(
     savedNumbers: List<SavedNumberResponse>,
+    selectedSavedNumbers: List<SavedNumberResponse>,
     isLoading: Boolean,
-    onNumberSelected: (SavedNumberResponse) -> Unit,
+    onSelectionChanged: (List<SavedNumberResponse>) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "💾 저장된 번호 선택",
+                text = "💾 저장된 번호 선택 (${selectedSavedNumbers.size}개)",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -733,12 +835,24 @@ fun SavedNumbersSelectionDialog(
                         items = savedNumbers,
                         key = { it.id }
                     ) { savedNumber ->
+                        val isSelected = selectedSavedNumbers.any { it.id == savedNumber.id }
+                        
                         Card(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            onClick = { onNumberSelected(savedNumber) },
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                val newSelection = if (isSelected) {
+                                    selectedSavedNumbers.filter { it.id != savedNumber.id }
+                                } else {
+                                    selectedSavedNumbers + savedNumber
+                                }
+                                onSelectionChanged(newSelection)
+                            },
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                containerColor = if (isSelected) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                }
                             )
                         ) {
                             Column(
@@ -749,11 +863,20 @@ fun SavedNumbersSelectionDialog(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = savedNumber.nickname ?: "번호 ${savedNumber.id}",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Checkbox(
+                                            checked = isSelected,
+                                            onCheckedChange = null
+                                        )
+                                        Text(
+                                            text = savedNumber.nickname ?: "번호 ${savedNumber.id}",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                     if (savedNumber.isFavorite) {
                                         Icon(
                                             imageVector = Icons.Default.Star,
@@ -793,8 +916,23 @@ fun SavedNumbersSelectionDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("닫기")
+            TextButton(onClick = {
+                android.util.Log.d("SavedNumbersSelectionDialog", "✅ 선택 완료: ${selectedSavedNumbers.size}개")
+                selectedSavedNumbers.forEachIndexed { index, number ->
+                    android.util.Log.d("SavedNumbersSelectionDialog", "  [$index] ${number.nickname}: ${number.numbers}")
+                }
+                onDismiss()
+            }) {
+                Text("완료")
+            }
+        },
+        dismissButton = {
+            if (selectedSavedNumbers.isNotEmpty()) {
+                TextButton(
+                    onClick = { onSelectionChanged(emptyList()) }
+                ) {
+                    Text("전체 해제")
+                }
             }
         }
     )
@@ -809,7 +947,9 @@ fun VirtualDrawAnimationDialog(
     winningNumbers: List<Int>,
     bonusNumber: Int,
     savedNumberNickname: String?,
-    onAnimationComplete: () -> Unit,
+    currentIndex: Int = 1,
+    totalCount: Int = 1,
+    onAnimationComplete: (matchedCount: Int, hasBonus: Boolean, rank: Int?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var revealedNumbers by remember { mutableStateOf<List<Int>>(emptyList()) }
@@ -818,6 +958,16 @@ fun VirtualDrawAnimationDialog(
     val matchedNumbers = userNumbers.filter { it in winningNumbers }
     val hasBonus = bonusNumber in userNumbers && bonusNumber !in winningNumbers
     val matchCount = matchedNumbers.size
+    
+    // 등수 계산
+    val rank = when {
+        matchCount == 6 -> 1
+        matchCount == 5 && hasBonus -> 2
+        matchCount == 5 -> 3
+        matchCount == 4 -> 4
+        matchCount == 3 -> 5
+        else -> null
+    }
     
     // 애니메이션 진행
     LaunchedEffect(Unit) {
@@ -837,11 +987,6 @@ fun VirtualDrawAnimationDialog(
         
         // 4. 결과 표시
         showResult = true
-        delay(500)
-        
-        // 5. 3초 후 자동으로 결과 확인
-        delay(3000)
-        onAnimationComplete()
     }
     
     AlertDialog(
@@ -854,6 +999,16 @@ fun VirtualDrawAnimationDialog(
                     .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // 진행 상황 표시
+                if (totalCount > 1) {
+                    Text(
+                        text = "$currentIndex / $totalCount",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                
                 // 제목
                 Text(
                     text = if (showResult) "🎊 추첨 결과" else "🎰 추첨 중...",
@@ -880,20 +1035,27 @@ fun VirtualDrawAnimationDialog(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    userNumbers.forEach { number ->
-                        val isMatched = showResult && number in matchedNumbers
-                        val isBonusMatch = showResult && hasBonus && number == bonusNumber
-                        
-                        AnimatedLottoBall(
-                            number = number,
-                            size = 40.dp,
-                            isHighlighted = isMatched || isBonusMatch,
-                            highlightColor = if (isBonusMatch) Color(0xFFFF6B6B) else Color(0xFF4CAF50)
-                        )
+                    val ballCount = userNumbers.size
+                    val spacing = 6.dp
+                    val totalSpacing = spacing * (ballCount - 1)
+                    val ballSizePx = ((maxWidth - totalSpacing) / ballCount).coerceAtMost(56.dp)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(spacing),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        userNumbers.forEach { number ->
+                            val isMatched = showResult && number in matchedNumbers
+                            val isBonusMatch = showResult && hasBonus && number == bonusNumber
+                            AnimatedLottoBall(
+                                number = number,
+                                size = ballSizePx,
+                                isHighlighted = isMatched || isBonusMatch,
+                                highlightColor = if (isBonusMatch) Color(0xFFFF6B6B) else Color(0xFF4CAF50)
+                            )
+                        }
                     }
                 }
                 
@@ -906,32 +1068,41 @@ fun VirtualDrawAnimationDialog(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    winningNumbers.forEach { number ->
-                        AnimatedRevealBall(
-                            number = number,
-                            isRevealed = number in revealedNumbers,
-                            size = 40.dp
-                        )
-                    }
+                    val ballCount = if (revealedNumbers.size > winningNumbers.size) winningNumbers.size + 1 else winningNumbers.size
+                    val spacing = 6.dp
+                    val totalSpacing = spacing * (ballCount - 1) + if (revealedNumbers.size > winningNumbers.size) 16.dp else 0.dp
+                    val ballSizePx = ((maxWidth - totalSpacing) / ballCount).coerceAtMost(56.dp)
                     
-                    if (revealedNumbers.size > winningNumbers.size) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "보너스",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                        )
-                        
-                        AnimatedRevealBall(
-                            number = bonusNumber,
-                            isRevealed = bonusNumber in revealedNumbers,
-                            size = 40.dp,
-                            isBonus = true
-                        )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(spacing),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        winningNumbers.forEach { number ->
+                            AnimatedRevealBall(
+                                number = number,
+                                isRevealed = number in revealedNumbers,
+                                size = ballSizePx
+                            )
+                        }
+                    
+                        if (revealedNumbers.size > winningNumbers.size) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "보너스",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                            )
+                            
+                            AnimatedRevealBall(
+                                number = bonusNumber,
+                                isRevealed = bonusNumber in revealedNumbers,
+                                size = ballSizePx,
+                                isBonus = true
+                            )
+                        }
                     }
                 }
                 
@@ -975,19 +1146,19 @@ fun VirtualDrawAnimationDialog(
         confirmButton = {
             if (showResult) {
                 Button(
-                    onClick = onAnimationComplete,
+                    onClick = { onAnimationComplete(matchCount, hasBonus, rank) },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
-                    Text("상세 결과 보기")
+                    Text(if (totalCount > 1 && currentIndex < totalCount) "다음 번호 추첨" else "확인")
                 }
             }
         },
         dismissButton = {
-            if (showResult) {
+            if (showResult && totalCount > 1) {
                 TextButton(onClick = onDismiss) {
-                    Text("닫기")
+                    Text("전체 중단")
                 }
             }
         }
@@ -1095,4 +1266,142 @@ fun AnimatedRevealBall(
             )
         }
     }
+}
+
+/**
+ * 전체 당첨 결과 요약 다이얼로그
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DrawResultsSummaryDialog(
+    results: List<DrawResult>,
+    onDismiss: () -> Unit
+) {
+    // 명확한 정렬: matchedCount 내림차순 -> hasBonus 내림차순 -> rank 오름차순 (null은 뒤로)
+    val sortedResults = remember(results) {
+        results.sortedWith(
+            compareByDescending<DrawResult> { it.matchedCount }
+                .thenByDescending { it.hasBonus }
+                .thenBy { it.rank ?: Int.MAX_VALUE }
+        ).also {
+            // 정렬 결과 로그
+            android.util.Log.d("DrawResults", "📊 정렬 전 결과:")
+            results.forEachIndexed { index, result ->
+                android.util.Log.d("DrawResults", "  [$index] ${result.nickname}: ${result.matchedCount}개, bonus=${result.hasBonus}, rank=${result.rank}")
+            }
+            android.util.Log.d("DrawResults", "📊 정렬 후 결과:")
+            it.forEachIndexed { index, result ->
+                android.util.Log.d("DrawResults", "  [$index] ${result.nickname}: ${result.matchedCount}개, bonus=${result.hasBonus}, rank=${result.rank}")
+            }
+        }
+    }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "🎉 전체 당첨 결과",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(
+                    items = sortedResults,
+                    key = { "${it.nickname}_${it.numbers.joinToString()}" }
+                ) { result ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = when (result.rank) {
+                                1 -> Color(0xFFFFD700).copy(alpha = 0.3f)
+                                2, 3 -> Color(0xFFC0C0C0).copy(alpha = 0.3f)
+                                4, 5 -> Color(0xFFCD7F32).copy(alpha = 0.3f)
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            }
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp)
+                        ) {
+                            // 번호 이름
+                            Text(
+                                text = result.nickname,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            // 번호
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                result.numbers.forEach { number ->
+                                    LottoBall(number = number, size = 28.dp)
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Divider()
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            // 결과
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${result.matchedCount}개 일치" + 
+                                           if (result.hasBonus) " + 보너스" else "",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                
+                                result.rank?.let { rank ->
+                                    val emoji = when (rank) {
+                                        1 -> "🎉"
+                                        2 -> "🎊"
+                                        3 -> "🎁"
+                                        4 -> "✨"
+                                        5 -> "🌟"
+                                        else -> ""
+                                    }
+                                    Text(
+                                        text = "$emoji ${rank}등",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = when (rank) {
+                                            1 -> Color(0xFFFF6B35)
+                                            2, 3 -> Color(0xFF4CAF50)
+                                            else -> MaterialTheme.colorScheme.primary
+                                        }
+                                    )
+                                } ?: run {
+                                    Text(
+                                        text = "낙첨",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) {
+                Text("확인")
+            }
+        }
+    )
 }

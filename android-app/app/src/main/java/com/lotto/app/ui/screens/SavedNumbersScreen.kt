@@ -4,7 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -37,19 +39,23 @@ fun SavedNumbersScreen(
     
     var showDeleteDialog by remember { mutableStateOf<SavedNumberResponse?>(null) }
     var showEditDialog by remember { mutableStateOf<SavedNumberResponse?>(null) }
+    var showManualInputDialog by remember { mutableStateOf(false) }
+    
+    val context = androidx.compose.ui.platform.LocalContext.current
     
     // 에러 메시지 표시
     LaunchedEffect(error) {
         error?.let {
-            // Snackbar나 Toast로 에러 표시 (여기서는 로그로만)
-            android.util.Log.e("SavedNumbersScreen", it)
+            android.util.Log.e("SavedNumbersScreen", "❌ 에러: $it")
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
         }
     }
     
     // 성공 메시지 표시
     LaunchedEffect(successMessage) {
         successMessage?.let {
-            android.util.Log.d("SavedNumbersScreen", it)
+            android.util.Log.d("SavedNumbersScreen", "✅ 성공: $it")
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_SHORT).show()
             viewModel.clearSuccessMessage()
         }
     }
@@ -72,6 +78,13 @@ fun SavedNumbersScreen(
                     }
                 },
                 actions = {
+                    // 직접 입력 버튼
+                    IconButton(onClick = { showManualInputDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "직접 입력"
+                        )
+                    }
                     // 새로고침 버튼
                     IconButton(onClick = { viewModel.loadSavedNumbers() }) {
                         Icon(
@@ -215,6 +228,18 @@ fun SavedNumbersScreen(
                 viewModel.updateNickname(number, nickname)
                 viewModel.updateMemo(number, memo)
                 showEditDialog = null
+            }
+        )
+    }
+    
+    // 직접 입력 다이얼로그
+    if (showManualInputDialog) {
+        ManualNumberInputDialog(
+            onDismiss = { showManualInputDialog = false },
+            onSave = { numbers, nickname, memo ->
+                android.util.Log.d("SavedNumbersScreen", "🔍 직접 입력 저장 요청: numbers=$numbers, nickname=$nickname, memo=$memo")
+                viewModel.saveManualNumber(numbers, nickname, memo)
+                showManualInputDialog = false
             }
         )
     }
@@ -415,5 +440,189 @@ private fun getRecommendationTypeText(type: String): String {
         "balanced" -> "균형"
         "random" -> "랜덤"
         else -> type
+    }
+}
+
+/**
+ * 직접 번호 입력 다이얼로그
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ManualNumberInputDialog(
+    onDismiss: () -> Unit,
+    onSave: (numbers: List<Int>, nickname: String, memo: String) -> Unit
+) {
+    var selectedNumbers by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var nicknameText by remember { mutableStateOf("") }
+    var memoText by remember { mutableStateOf("") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "번호 직접 입력",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // 선택 개수 표시
+                Text(
+                    text = "${selectedNumbers.size}/6 선택됨",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (selectedNumbers.size == 6) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    },
+                    fontWeight = FontWeight.Bold
+                )
+                
+                // 번호 그리드 (1-45)
+                NumberGrid(
+                    selectedNumbers = selectedNumbers,
+                    onNumberClick = { number ->
+                        selectedNumbers = if (selectedNumbers.contains(number)) {
+                            selectedNumbers - number
+                        } else {
+                            if (selectedNumbers.size < 6) {
+                                selectedNumbers + number
+                            } else {
+                                selectedNumbers
+                            }
+                        }
+                    }
+                )
+                
+                Divider()
+                
+                // 닉네임 입력
+                OutlinedTextField(
+                    value = nicknameText,
+                    onValueChange = { nicknameText = it },
+                    label = { Text("닉네임 (선택사항)") },
+                    placeholder = { Text("예: 행운의 번호") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                
+                // 메모 입력
+                OutlinedTextField(
+                    value = memoText,
+                    onValueChange = { memoText = it },
+                    label = { Text("메모 (선택사항)") },
+                    placeholder = { Text("번호에 대한 메모를 입력하세요") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (selectedNumbers.size == 6) {
+                        val sortedNumbers = selectedNumbers.sorted()
+                        val finalNickname = nicknameText.ifBlank { "직접 입력" }
+                        android.util.Log.d("ManualNumberInputDialog", "🔍 저장 버튼 클릭: numbers=$sortedNumbers, nickname=$finalNickname, memo=$memoText")
+                        onSave(
+                            sortedNumbers,
+                            finalNickname,
+                            memoText
+                        )
+                    }
+                },
+                enabled = selectedNumbers.size == 6
+            ) {
+                Text("저장")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("취소")
+            }
+        }
+    )
+}
+
+/**
+ * 번호 그리드 (1-45)
+ */
+@Composable
+fun NumberGrid(
+    selectedNumbers: Set<Int>,
+    onNumberClick: (Int) -> Unit
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        for (row in 0..8) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                for (col in 0..4) {
+                    val number = row * 5 + col + 1
+                    if (number <= 45) {
+                        NumberButton(
+                            number = number,
+                            isSelected = selectedNumbers.contains(number),
+                            onClick = { onNumberClick(number) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 번호 버튼
+ */
+@Composable
+fun NumberButton(
+    number: Int,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor = when {
+        isSelected -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.surface
+    }
+    
+    val contentColor = when {
+        isSelected -> MaterialTheme.colorScheme.onPrimary
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier
+            .aspectRatio(1f),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = backgroundColor,
+            contentColor = contentColor
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+        ),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        Text(
+            text = number.toString(),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }

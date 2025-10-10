@@ -44,16 +44,19 @@ class SavedNumberViewModel : ViewModel() {
             _isLoading.value = true
             _error.value = null
             
-            Log.d(TAG, "저장된 번호 목록 로드 시작")
+            Log.d(TAG, "🔄 저장된 번호 목록 로드 시작")
             
             repository.getSavedNumbers()
                 .onSuccess { numbers ->
                     _savedNumbers.value = numbers
                     Log.d(TAG, "✅ 저장된 번호 ${numbers.size}개 로드 완료")
+                    numbers.forEachIndexed { index, number ->
+                        Log.d(TAG, "  [$index] id=${number.id}, numbers=${number.numbers}, nickname=${number.nickname}, type=${number.recommendationType}")
+                    }
                 }
                 .onFailure { e ->
                     _error.value = "번호 목록을 불러오지 못했습니다: ${e.message}"
-                    Log.e(TAG, "❌ 저장된 번호 로드 실패", e)
+                    Log.e(TAG, "❌ 저장된 번호 로드 실패: ${e.message}", e)
                 }
             
             _isLoading.value = false
@@ -74,7 +77,12 @@ class SavedNumberViewModel : ViewModel() {
             _isLoading.value = true
             _error.value = null
             
-            Log.d(TAG, "번호 저장 시작: $numbers")
+            Log.d(TAG, "🔍 번호 저장 시작:")
+            Log.d(TAG, "  numbers: $numbers")
+            Log.d(TAG, "  nickname: $nickname")
+            Log.d(TAG, "  memo: $memo")
+            Log.d(TAG, "  isFavorite: $isFavorite")
+            Log.d(TAG, "  recommendationType: $recommendationType")
             
             repository.saveNumber(
                 numbers = numbers,
@@ -85,12 +93,12 @@ class SavedNumberViewModel : ViewModel() {
             )
                 .onSuccess {
                     _successMessage.value = "번호가 저장되었습니다"
-                    Log.d(TAG, "✅ 번호 저장 성공")
+                    Log.d(TAG, "✅ 번호 저장 성공: $it")
                     loadSavedNumbers() // 목록 새로고침
                 }
                 .onFailure { e ->
                     _error.value = "번호 저장에 실패했습니다: ${e.message}"
-                    Log.e(TAG, "❌ 번호 저장 실패", e)
+                    Log.e(TAG, "❌ 번호 저장 실패: ${e.message}", e)
                 }
             
             _isLoading.value = false
@@ -200,6 +208,20 @@ class SavedNumberViewModel : ViewModel() {
             memo = savedNumber.memo,
             isFavorite = savedNumber.isFavorite,
             recommendationType = savedNumber.recommendationType
+        )
+    }
+    
+    /**
+     * 직접 입력한 번호 저장
+     */
+    fun saveManualNumber(numbers: List<Int>, nickname: String, memo: String) {
+        Log.d(TAG, "🔍 직접 입력 번호 저장 시작: numbers=$numbers, nickname=$nickname, memo=$memo")
+        saveNumber(
+            numbers = numbers,
+            nickname = nickname.ifBlank { "직접 입력" },
+            memo = memo.ifBlank { null },
+            isFavorite = false,
+            recommendationType = "manual"
         )
     }
     
