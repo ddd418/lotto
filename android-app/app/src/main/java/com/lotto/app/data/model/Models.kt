@@ -111,3 +111,95 @@ data class LatestDrawResponse(
     @SerializedName("include_bonus")
     val includeBonus: Boolean
 )
+
+/**
+ * 번호 빈도 정보
+ */
+data class NumberFrequency(
+    @SerializedName("number")
+    val number: Int,
+    
+    @SerializedName("count")
+    val count: Int,
+    
+    @SerializedName("percentage")
+    val percentage: Float
+)
+
+/**
+ * 십의 자리 분포
+ */
+data class DecadeDistribution(
+    @SerializedName("decade")
+    val decade: String,
+    
+    @SerializedName("count")
+    val count: Int,
+    
+    @SerializedName("percentage")
+    val percentage: Float
+)
+
+/**
+ * 대시보드 응답
+ */
+data class DashboardResponse(
+    @SerializedName("success")
+    val success: Boolean,
+    
+    @SerializedName("generated_at")
+    val generatedAt: String,
+    
+    @SerializedName("total_draws")
+    val totalDraws: Int,
+    
+    @SerializedName("frequency")
+    val frequency: List<NumberFrequency>,
+    
+    @SerializedName("recent_frequency")
+    val recentFrequency: List<NumberFrequency>,
+    
+    @SerializedName("hot_numbers")
+    val hotNumbers: List<Int>,
+    
+    @SerializedName("cold_numbers")
+    val coldNumbers: List<Int>,
+    
+    @SerializedName("decade_distribution")
+    val decadeDistribution: List<DecadeDistribution>,
+    
+    @SerializedName("even_odd_ratio")
+    val evenOddRatio: Map<String, Float>,
+    
+    @SerializedName("sum_range")
+    val sumRange: Map<String, Int>,
+    
+    @SerializedName("consecutive_count")
+    val consecutiveCount: Map<String, Int>
+)
+
+/**
+ * 저장된 번호 응답 모델 (API)
+ */
+data class SavedNumberApiResponse(
+    @SerializedName("id")
+    val id: Int,
+    
+    @SerializedName("numbers")
+    val numbers: List<Int>,
+    
+    @SerializedName("nickname")
+    val nickname: String?,
+    
+    @SerializedName("memo")
+    val memo: String?,
+    
+    @SerializedName("is_favorite")
+    val isFavorite: Boolean,
+    
+    @SerializedName("recommendation_type")
+    val recommendationType: String?,
+    
+    @SerializedName("created_at")
+    val createdAt: String
+)

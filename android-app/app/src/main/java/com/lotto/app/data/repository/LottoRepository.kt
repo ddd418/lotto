@@ -77,4 +77,39 @@ class LottoRepository {
             Result.failure(e)
         }
     }
+    
+    
+    /**
+     * 대시보드 통계 조회
+     * @param recentDraws 최근 N회차 (기본값: 20, 범위: 5-100)
+     */
+    suspend fun getDashboard(recentDraws: Int = 20): Result<DashboardResponse> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.getDashboard(recentDraws)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("대시보드 조회 실패: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * 저장된 번호 목록 조회 (서버에서)
+     */
+    suspend fun getSavedNumbersFromServer(): Result<List<SavedNumberApiResponse>> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.getSavedNumbers()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("저장된 번호 조회 실패: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
+

@@ -221,7 +221,14 @@ def build_weights_from_frequency(freq_map: Dict[str, int]) -> List[float]:
     weights = [weights_dict[n] for n in range(LOTTO_MIN, LOTTO_MAX+1)]
     return weights
 
-def recommend_sets(stats: dict, n_sets: int = 5, seed: Optional[int] = None, mode: str = "ai") -> List[List[int]]:
+def recommend_sets(
+    stats: dict, 
+    n_sets: int = 5, 
+    seed: Optional[int] = None, 
+    mode: str = "ai",
+    lucky_numbers: Optional[List[int]] = None,
+    exclude_numbers: Optional[List[int]] = None
+) -> List[List[int]]:
     """
     빈도 기반 가중 샘플링 + 휴리스틱 필터로 6개 번호 x n_sets 추천.
     
@@ -230,6 +237,9 @@ def recommend_sets(stats: dict, n_sets: int = 5, seed: Optional[int] = None, mod
         - "random": 완전 랜덤
         - "conservative": 보수적 (상위 15개만)
         - "aggressive": 공격적 (하위 번호도 포함)
+    
+    lucky_numbers: 행운 번호 (우선적으로 포함)
+    exclude_numbers: 제외 번호 (추천에서 제외)
     """
     if seed is not None:
         random.seed(seed)
@@ -237,14 +247,23 @@ def recommend_sets(stats: dict, n_sets: int = 5, seed: Optional[int] = None, mod
     freq_map = stats["frequency"]
     population = list(range(LOTTO_MIN, LOTTO_MAX+1))
     
+    # 제외 번호가 있으면 population에서 제거
+    if exclude_numbers:
+        population = [n for n in population if n not in exclude_numbers]
+    
+    # 행운 번호 유효성 검사
+    valid_lucky_numbers = []
+    if lucky_numbers:
+        valid_lucky_numbers = [n for n in lucky_numbers if n in population]
+    
     # 모드별 가중치 설정
     if mode == "random":
         # 완전 랜덤: 모든 번호 동일 가중치
-        base_weights = [1.0] * 45
+        base_weights = [1.0 if n in population else 0.0 for n in range(LOTTO_MIN, LOTTO_MAX+1)]
     elif mode == "conservative":
         # 보수적: 상위 15개만 높은 가중치
         freq_list = [(n, freq_map.get(str(n), 0) if isinstance(next(iter(freq_map.keys())), str) else freq_map.get(n, 0))
-                     for n in range(LOTTO_MIN, LOTTO_MAX+1)]
+                     for n in range(LOTTO_MIN, LOTTO_MAX+1) if n in population]
         freq_list.sort(key=lambda x: x[1], reverse=True)
         weights_dict = {}
         for i, (num, count) in enumerate(freq_list):
@@ -252,11 +271,11 @@ def recommend_sets(stats: dict, n_sets: int = 5, seed: Optional[int] = None, mod
                 weights_dict[num] = (count ** 2) + 50
             else:
                 weights_dict[num] = 0.01
-        base_weights = [weights_dict[n] for n in range(LOTTO_MIN, LOTTO_MAX+1)]
+        base_weights = [weights_dict.get(n, 0.0) for n in range(LOTTO_MIN, LOTTO_MAX+1)]
     elif mode == "aggressive":
         # 공격적: 하위 번호도 적극 활용
         freq_list = [(n, freq_map.get(str(n), 0) if isinstance(next(iter(freq_map.keys())), str) else freq_map.get(n, 0))
-                     for n in range(LOTTO_MIN, LOTTO_MAX+1)]
+                     for n in range(LOTTO_MIN, LOTTO_MAX+1) if n in population]
         freq_list.sort(key=lambda x: x[1], reverse=True)
         weights_dict = {}
         for i, (num, count) in enumerate(freq_list):
@@ -264,9 +283,14 @@ def recommend_sets(stats: dict, n_sets: int = 5, seed: Optional[int] = None, mod
                 weights_dict[num] = count + 5
             else:  # 하위 10개도 선택 가능
                 weights_dict[num] = 3.0
-        base_weights = [weights_dict[n] for n in range(LOTTO_MIN, LOTTO_MAX+1)]
+        base_weights = [weights_dict.get(n, 0.0) for n in range(LOTTO_MIN, LOTTO_MAX+1)]
     else:  # "ai" (기본)
         base_weights = build_weights_from_frequency(freq_map)
+        # 제외 번호가 있으면 해당 번호의 가중치를 0으로
+        if exclude_numbers:
+            for n in exclude_numbers:
+                if LOTTO_MIN <= n <= LOTTO_MAX:
+                    base_weights[n - LOTTO_MIN] = 0.0
 
     results = []
     attempts_cap = 300  # 각 세트당 최대 시도
@@ -275,7 +299,31 @@ def recommend_sets(stats: dict, n_sets: int = 5, seed: Optional[int] = None, mod
         attempts = 0
         while not ok and attempts < attempts_cap:
             attempts += 1
-            nums = weighted_sample_without_replacement(population, base_weights, 6)
+            
+            # 행운 번호가 있으면 우선 포함
+            if valid_lucky_numbers:
+                # 행운 번호를 먼저 선택
+                nums_to_fill = 6 - len(valid_lucky_numbers)
+                if nums_to_fill > 0:
+                    # 행운 번호를 제외한 나머지 번호 풀
+                    remaining_pop = [n for n in population if n not in valid_lucky_numbers]
+                    remaining_weights = [base_weights[n - LOTTO_MIN] for n in remaining_pop]
+                    
+                    if sum(remaining_weights) > 0:
+                        additional_nums = weighted_sample_without_replacement(
+                            remaining_pop, remaining_weights, nums_to_fill
+                        )
+                        nums = valid_lucky_numbers + additional_nums
+                    else:
+                        # 가중치가 모두 0이면 랜덤 샘플링
+                        additional_nums = random.sample(remaining_pop, min(nums_to_fill, len(remaining_pop)))
+                        nums = valid_lucky_numbers + additional_nums
+                else:
+                    # 행운 번호가 6개 이상이면 처음 6개만 사용
+                    nums = valid_lucky_numbers[:6]
+            else:
+                nums = weighted_sample_without_replacement(population, base_weights, 6)
+            
             nums = sorted(nums)
             if is_plausible(nums):
                 ok = True

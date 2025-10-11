@@ -37,8 +37,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lotto.app.data.local.SavedNumbersManager
+import com.lotto.app.data.model.SavedLottoNumber
+import com.lotto.app.data.model.SavedNumberApiResponse
 import com.lotto.app.data.model.VirtualDrawResult
 import com.lotto.app.data.model.WinningRank
+import com.lotto.app.data.repository.LottoRepository
 import com.lotto.app.ui.components.LottoNumberBall
 import com.lotto.app.util.VirtualDrawUtil
 import kotlinx.coroutines.delay
@@ -92,10 +95,36 @@ fun VirtualDrawScreen(
 ) {
     val context = LocalContext.current
     val savedNumbersManager = remember { SavedNumbersManager(context) }
+    val repository = remember { LottoRepository() }
     
     var isDrawing by remember { mutableStateOf(false) }
     var drawResult by remember { mutableStateOf<VirtualDrawResult?>(null) }
     var showResults by remember { mutableStateOf(false) }
+    
+    // 저장된 번호 목록 (서버에서 가져옴)
+    var savedNumbers by remember { mutableStateOf<List<SavedNumberApiResponse>>(emptyList()) }
+    var selectedNumbers by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var showNumberSelector by remember { mutableStateOf(false) }
+    var isLoadingNumbers by remember { mutableStateOf(false) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    
+    // 서버에서 저장된 번호 로드
+    LaunchedEffect(Unit) {
+        isLoadingNumbers = true
+        loadError = null
+        repository.getSavedNumbersFromServer().fold(
+            onSuccess = { numbers ->
+                savedNumbers = numbers
+                isLoadingNumbers = false
+            },
+            onFailure = { error ->
+                loadError = error.message
+                isLoadingNumbers = false
+                // 오류 발생 시 로컬 저장소 사용
+                savedNumbers = emptyList()
+            }
+        )
+    }
     
     // 룰렛 애니메이션
     val rotationAngle by animateFloatAsState(
@@ -195,6 +224,184 @@ fun VirtualDrawScreen(
                 }
             }
             
+            // 저장된 번호 선택 UI
+            if (isLoadingNumbers) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            } else if (loadError != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "⚠️ 저장된 번호를 불러올 수 없습니다",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            text = "로그인이 필요하거나 네트워크 오류가 발생했습니다",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            } else if (savedNumbers.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "💾 저장된 번호로 추첨",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Text(
+                                text = "${selectedNumbers.size}/5 선택",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        TextButton(
+                            onClick = { showNumberSelector = !showNumberSelector },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = if (showNumberSelector) "▼ 번호 목록 접기" else "▶ 번호 선택하기 (최대 5개)",
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        
+                        if (showNumberSelector) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            savedNumbers.forEachIndexed { index, savedNumber ->
+                                val isSelected = selectedNumbers.contains(index)
+                                
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isSelected) {
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.surface
+                                        }
+                                    ),
+                                    onClick = {
+                                        selectedNumbers = if (isSelected) {
+                                            selectedNumbers - index
+                                        } else if (selectedNumbers.size < 5) {
+                                            selectedNumbers + index
+                                        } else {
+                                            selectedNumbers
+                                        }
+                                    }
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            // 닉네임 또는 메모 표시
+                                            val displayText = savedNumber.nickname?.takeIf { it.isNotEmpty() } 
+                                                ?: savedNumber.memo?.takeIf { it.isNotEmpty() }
+                                            
+                                            if (displayText != null) {
+                                                Text(
+                                                    text = displayText,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                            }
+                                            
+                                            // 번호들
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                savedNumber.numbers.forEach { number ->
+                                                    ResponsiveLottoNumberBall(
+                                                        number = number,
+                                                        isCompact = true
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        
+                                        if (isSelected) {
+                                            Icon(
+                                                imageVector = Icons.Default.Stars,
+                                                contentDescription = "선택됨",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (selectedNumbers.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    TextButton(
+                                        onClick = { selectedNumbers = emptySet() }
+                                    ) {
+                                        Text("선택 초기화")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
             // 추첨 버튼
             Button(
                 onClick = {
@@ -222,7 +429,12 @@ fun VirtualDrawScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("추첨 중...", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 } else {
-                    Text("🎲 가상 추첨 시작!", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    val buttonText = if (selectedNumbers.isEmpty()) {
+                        "🎲 가상 추첨 시작!"
+                    } else {
+                        "🎲 선택한 ${selectedNumbers.size}개 번호로 추첨!"
+                    }
+                    Text(buttonText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
             }
             
@@ -278,8 +490,14 @@ fun VirtualDrawScreen(
         if (isDrawing) {
             delay(3000) // 룰렛 애니메이션 시간
             
-            // 가상 추첨 실행
-            val result = VirtualDrawUtil.performVirtualDraw(savedNumbersManager)
+            // 가상 추첨 실행 (선택된 번호가 있으면 해당 번호만, 없으면 전체)
+            val result = if (selectedNumbers.isEmpty()) {
+                // 전체 번호로 추첨 (로컬 사용)
+                VirtualDrawUtil.performVirtualDraw(savedNumbersManager)
+            } else {
+                // 선택된 번호만 추첨 (API 데이터 사용)
+                VirtualDrawUtil.performVirtualDrawWithSelectedNumbersFromApi(savedNumbers, selectedNumbers)
+            }
             drawResult = result
             
             delay(1000)
@@ -398,25 +616,58 @@ fun DrawnNumbersCard(numbers: List<Int>, bonusNumber: Int) {
                             
                             Spacer(modifier = Modifier.height(12.dp))
                             
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            // FlowRow로 변경하여 공간에 맞게 배치
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                numbers.forEachIndexed { index, number ->
-                                    // 애니메이션으로 번호 볼 나타내기
-                                    var ballVisible by remember { mutableStateOf(false) }
-                                    
-                                    LaunchedEffect(Unit) {
-                                        delay(1000 + (index * 150L))
-                                        ballVisible = true
+                                // 첫 번째 줄: 3개
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    numbers.take(3).forEachIndexed { index, number ->
+                                        var ballVisible by remember { mutableStateOf(false) }
+                                        
+                                        LaunchedEffect(Unit) {
+                                            delay(1000 + (index * 150L))
+                                            ballVisible = true
+                                        }
+                                        
+                                        AnimatedVisibility(
+                                            visible = ballVisible,
+                                            enter = fadeIn(animationSpec = tween(400)) +
+                                                    slideInVertically(initialOffsetY = { -it })
+                                        ) {
+                                            ResponsiveLottoNumberBall(number = number)
+                                        }
                                     }
-                                    
-                                    AnimatedVisibility(
-                                        visible = ballVisible,
-                                        enter = fadeIn(animationSpec = tween(400)) +
-                                                slideInVertically(initialOffsetY = { -it })
-                                    ) {
-                                        ResponsiveLottoNumberBall(number = number)
+                                }
+                                
+                                // 두 번째 줄: 3개
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    numbers.drop(3).forEachIndexed { index, number ->
+                                        var ballVisible by remember { mutableStateOf(false) }
+                                        
+                                        LaunchedEffect(Unit) {
+                                            delay(1000 + ((index + 3) * 150L))
+                                            ballVisible = true
+                                        }
+                                        
+                                        AnimatedVisibility(
+                                            visible = ballVisible,
+                                            enter = fadeIn(animationSpec = tween(400)) +
+                                                    slideInVertically(initialOffsetY = { -it })
+                                        ) {
+                                            ResponsiveLottoNumberBall(number = number)
+                                        }
                                     }
                                 }
                             }

@@ -39,6 +39,83 @@ object VirtualDrawUtil {
     }
     
     /**
+     * 선택된 번호만으로 가상 추첨 실행
+     */
+    fun performVirtualDrawWithSelectedNumbers(
+        savedNumbersManager: SavedNumbersManager,
+        selectedIndices: Set<Int>
+    ): VirtualDrawResult {
+        // 1~45에서 6개 번호 무작위 선택
+        val drawnNumbers = (1..45).shuffled().take(6).sorted()
+        
+        // 보너스 번호 (선택된 6개 제외)
+        val remainingNumbers = (1..45).filter { it !in drawnNumbers }
+        val bonusNumber = remainingNumbers.random()
+        
+        // 현재 시간
+        val drawDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        
+        // 저장된 번호 중 선택된 것만 가져오기
+        val allSavedNumbers = savedNumbersManager.getSavedNumbers()
+        val selectedNumbers = selectedIndices.mapNotNull { index ->
+            allSavedNumbers.getOrNull(index)
+        }
+        
+        val userResults = selectedNumbers.map { savedNumber ->
+            analyzeUserResult(savedNumber, drawnNumbers, bonusNumber)
+        }
+        
+        return VirtualDrawResult(
+            drawnNumbers = drawnNumbers,
+            bonusNumber = bonusNumber,
+            drawDateTime = drawDateTime,
+            userResults = userResults
+        )
+    }
+    
+    /**
+     * 선택된 번호만으로 가상 추첨 실행 (API 응답 버전)
+     */
+    fun performVirtualDrawWithSelectedNumbersFromApi(
+        savedNumbers: List<com.lotto.app.data.model.SavedNumberApiResponse>,
+        selectedIndices: Set<Int>
+    ): VirtualDrawResult {
+        // 1~45에서 6개 번호 무작위 선택
+        val drawnNumbers = (1..45).shuffled().take(6).sorted()
+        
+        // 보너스 번호 (선택된 6개 제외)
+        val remainingNumbers = (1..45).filter { it !in drawnNumbers }
+        val bonusNumber = remainingNumbers.random()
+        
+        // 현재 시간
+        val drawDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        
+        // 저장된 번호 중 선택된 것만 가져오기
+        val selectedNumbers = selectedIndices.mapNotNull { index ->
+            savedNumbers.getOrNull(index)
+        }
+        
+        val userResults = selectedNumbers.map { apiResponse ->
+            // API 응답을 SavedLottoNumber로 변환
+            val savedNumber = SavedLottoNumber(
+                id = apiResponse.id.toString(),
+                numbers = apiResponse.numbers,
+                savedAt = System.currentTimeMillis(), // API에서 createdAt이 문자열이므로 현재 시간 사용
+                memo = apiResponse.memo ?: "",
+                isFavorite = apiResponse.isFavorite
+            )
+            analyzeUserResult(savedNumber, drawnNumbers, bonusNumber)
+        }
+        
+        return VirtualDrawResult(
+            drawnNumbers = drawnNumbers,
+            bonusNumber = bonusNumber,
+            drawDateTime = drawDateTime,
+            userResults = userResults
+        )
+    }
+    
+    /**
      * 사용자 번호 분석
      */
     private fun analyzeUserResult(

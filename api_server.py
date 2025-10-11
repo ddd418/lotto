@@ -118,6 +118,30 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     stats_available: bool
+
+class NumberFrequency(BaseModel):
+    number: int
+    count: int
+    percentage: float
+
+class DecadeDistribution(BaseModel):
+    decade: str  # "1-10", "11-20", etc.
+    count: int
+    percentage: float
+
+class DashboardResponse(BaseModel):
+    success: bool
+    generated_at: str
+    total_draws: int = Field(description="분석된 총 회차 수")
+    frequency: List[NumberFrequency] = Field(description="번호별 출현 빈도 (전체)")
+    recent_frequency: List[NumberFrequency] = Field(description="번호별 출현 빈도 (최근 20회차)")
+    hot_numbers: List[int] = Field(description="최근 핫 번호 (상위 10개)")
+    cold_numbers: List[int] = Field(description="최근 콜드 번호 (하위 10개)")
+    decade_distribution: List[DecadeDistribution] = Field(description="십의 자리 분포")
+    even_odd_ratio: Dict[str, float] = Field(description="홀짝 비율 {'even': 0.5, 'odd': 0.5}")
+    sum_range: Dict[str, int] = Field(description="당첨번호 합계 범위 {'min': 90, 'max': 210, 'avg': 150}")
+    consecutive_count: Dict[str, int] = Field(description="연속번호 출현 통계")
+
     last_draw: Optional[int]
     scheduler_running: bool
     next_update: Optional[str]
@@ -1097,7 +1121,10 @@ async def update_user_settings(
 # -----------------------------
 
 @app.post("/api/recommend", response_model=RecommendResponse)
-async def recommend_numbers(request: RecommendRequest):
+async def recommend_numbers(
+    request: RecommendRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
     로또 번호 추천 API
     
@@ -1105,7 +1132,7 @@ async def recommend_numbers(request: RecommendRequest):
     - **seed**: 랜덤 시드 (선택사항, 같은 시드면 같은 결과)
     
     Returns:
-        추천된 로또 번호 세트들
+        추천된 로또 번호 세트들 (사용자의 행운번호/제외번호 반영)
     """
     # 저장된 통계 로드
     stats = load_stats()
@@ -1116,8 +1143,30 @@ async def recommend_numbers(request: RecommendRequest):
         )
     
     try:
-        # 번호 추천 생성
-        sets = recommend_sets(stats, n_sets=request.n_sets, seed=request.seed, mode=request.mode)
+        # 사용자 설정에서 행운번호/제외번호 가져오기
+        lucky_numbers = None
+        exclude_numbers = None
+        
+        with Session(engine) as session:
+            user_settings = session.query(UserSettings).filter_by(
+                user_id=current_user.id  # User 객체의 id 속성 사용
+            ).first()
+            
+            if user_settings:
+                if user_settings.lucky_numbers:
+                    lucky_numbers = user_settings.lucky_numbers
+                if user_settings.exclude_numbers:
+                    exclude_numbers = user_settings.exclude_numbers
+        
+        # 번호 추천 생성 (행운번호/제외번호 반영)
+        sets = recommend_sets(
+            stats, 
+            n_sets=request.n_sets, 
+            seed=request.seed, 
+            mode=request.mode,
+            lucky_numbers=lucky_numbers,
+            exclude_numbers=exclude_numbers
+        )
         
         return RecommendResponse(
             success=True,
@@ -1187,6 +1236,215 @@ async def get_statistics(db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"통계 조회 중 오류: {str(e)}")
         raise HTTPException(status_code=500, detail=f"통계 조회 중 오류: {str(e)}")
+
+@app.get("/api/dashboard", response_model=DashboardResponse)
+async def get_dashboard_analytics(
+    recent_draws: int = 20,
+    db: Session = Depends(get_db)
+):
+    """
+    분석 대시보드용 종합 통계 API (실제 DB 데이터 기반)
+    
+    Args:
+        recent_draws: 최근 분석 회차 수 (기본값: 20, 범위: 5-100)
+    
+    Returns:
+        번호별 출현 빈도, 핫/콜드 번호, 십의 자리 분포, 홀짝 비율, 합계 범위, 연속번호 통계 등
+    """
+    # 파라미터 검증
+    if recent_draws < 5 or recent_draws > 100:
+        raise HTTPException(
+            status_code=400,
+            detail="recent_draws는 5~100 사이 값이어야 합니다."
+        )
+    try:
+        # DB에서 모든 당첨 번호 조회
+        winning_numbers = db.query(WinningNumber).order_by(WinningNumber.draw_number.desc()).all()
+        
+        if not winning_numbers:
+            raise HTTPException(
+                status_code=404,
+                detail="DB에 당첨 번호 데이터가 없습니다. 먼저 데이터를 동기화하세요."
+            )
+        
+        total_draws = len(winning_numbers)
+        
+        # 1. 번호 출현 빈도 계산
+        frequency = Counter()
+        for winning in winning_numbers:
+            numbers = [
+                winning.number1, winning.number2, winning.number3,
+                winning.number4, winning.number5, winning.number6
+            ]
+            frequency.update(numbers)
+        
+        # 빈도를 NumberFrequency 리스트로 변환
+        total_numbers = sum(frequency.values())
+        frequency_list = [
+            NumberFrequency(
+                number=num,
+                count=count,
+                percentage=round((count / total_numbers) * 100, 2)
+            )
+            for num, count in sorted(frequency.items(), key=lambda x: (-x[1], x[0]))
+        ]
+        
+        # 2. 핫/콜드 번호 (사용자 선택 회차 기준)
+        recent_frequency = Counter()
+        actual_recent_draws = min(recent_draws, total_draws)
+        for winning in winning_numbers[:actual_recent_draws]:
+            numbers = [
+                winning.number1, winning.number2, winning.number3,
+                winning.number4, winning.number5, winning.number6
+            ]
+            recent_frequency.update(numbers)
+        
+        # 모든 로또 번호(1-45)에 대해 빈도 초기화 (0회 출현 번호 포함)
+        for num in range(1, 46):
+            if num not in recent_frequency:
+                recent_frequency[num] = 0
+        
+        # 핫번호: 최근 20회차에서 가장 많이 나온 상위 10개
+        sorted_recent = sorted(recent_frequency.items(), key=lambda x: (-x[1], x[0]))
+        hot_numbers = [num for num, _ in sorted_recent[:10]]
+        
+        # 콜드번호: 최근 20회차에서 가장 적게 나온 하위 10개
+        cold_numbers = [num for num, count in sorted_recent[-10:]]
+        
+        # 최근 20회차 빈도를 NumberFrequency 리스트로 변환
+        recent_total_numbers = sum(recent_frequency.values())
+        recent_frequency_list = [
+            NumberFrequency(
+                number=num,
+                count=count,
+                percentage=round((count / recent_total_numbers) * 100, 2) if recent_total_numbers > 0 else 0.0
+            )
+            for num, count in sorted(recent_frequency.items(), key=lambda x: (-x[1], x[0]))
+        ]
+        
+        # 3. 십의 자리 분포 (최근 N회차 기준)
+        decade_counter = Counter()
+        for num, count in recent_frequency.items():
+            if 1 <= num <= 10:
+                decade = "1-10"
+            elif 11 <= num <= 20:
+                decade = "11-20"
+            elif 21 <= num <= 30:
+                decade = "21-30"
+            elif 31 <= num <= 40:
+                decade = "31-40"
+            else:  # 41-45
+                decade = "41-45"
+            decade_counter[decade] += count
+        
+        decade_total = sum(decade_counter.values())
+        decade_distribution = [
+            DecadeDistribution(
+                decade=decade,
+                count=count,
+                percentage=round((count / decade_total) * 100, 2)
+            )
+            for decade, count in sorted(decade_counter.items())
+        ]
+        
+        # 4. 홀짝 비율 (최근 N회차 기준)
+        even_count = sum(count for num, count in recent_frequency.items() if num % 2 == 0)
+        odd_count = sum(count for num, count in recent_frequency.items() if num % 2 == 1)
+        total_count = even_count + odd_count
+        even_odd_ratio = {
+            "even": round((even_count / total_count) * 100, 2) if total_count > 0 else 0.0,
+            "odd": round((odd_count / total_count) * 100, 2) if total_count > 0 else 0.0
+        }
+        
+        # 5. 당첨번호 합계 범위 (최근 N회차 기준)
+        sums = []
+        for winning in winning_numbers[:actual_recent_draws]:
+            numbers = [
+                winning.number1, winning.number2, winning.number3,
+                winning.number4, winning.number5, winning.number6
+            ]
+            sums.append(sum(numbers))
+        
+        sum_range = {
+            "min": min(sums) if sums else 0,
+            "max": max(sums) if sums else 0,
+            "avg": int(sum(sums) / len(sums)) if sums else 0
+        }
+        
+        # 6. 연속번호 출현 통계 (최근 N회차 기준)
+        # 연속번호가 없는 경우, 2개 연속, 3개 연속 등을 카운트
+        no_consecutive = 0  # 연속번호 없음
+        has_2_consecutive = 0  # 2개 연속 (예: 5,6)
+        has_3_consecutive = 0  # 3개 연속 (예: 5,6,7)
+        has_4_or_more = 0  # 4개 이상 연속
+        
+        for winning in winning_numbers[:actual_recent_draws]:
+            numbers = sorted([
+                winning.number1, winning.number2, winning.number3,
+                winning.number4, winning.number5, winning.number6
+            ])
+            
+            # 연속된 번호 개수 세기
+            max_consecutive = 1
+            current_consecutive = 1
+            for i in range(1, len(numbers)):
+                if numbers[i] == numbers[i-1] + 1:
+                    current_consecutive += 1
+                    max_consecutive = max(max_consecutive, current_consecutive)
+                else:
+                    current_consecutive = 1
+            
+            # 분류
+            if max_consecutive == 1:
+                no_consecutive += 1
+            elif max_consecutive == 2:
+                has_2_consecutive += 1
+            elif max_consecutive == 3:
+                has_3_consecutive += 1
+            else:  # 4 이상
+                has_4_or_more += 1
+        
+        consecutive_count = {
+            "none": no_consecutive,  # 연속 없음
+            "two": has_2_consecutive,  # 2개 연속
+            "three": has_3_consecutive,  # 3개 연속
+            "four_plus": has_4_or_more  # 4개 이상 연속
+        }
+        
+        # 최신 회차 정보
+        latest_winning = winning_numbers[0] if winning_numbers else None
+        last_draw = latest_winning.draw_number if latest_winning else None
+        
+        # 스케줄러 정보
+        scheduler_running = scheduler.running if scheduler else False
+        next_update = None
+        if scheduler and scheduler.running:
+            jobs = scheduler.get_jobs()
+            if jobs:
+                next_run = jobs[0].next_run_time
+                next_update = next_run.isoformat() if next_run else None
+        
+        return DashboardResponse(
+            success=True,
+            generated_at=datetime.now().isoformat(),
+            total_draws=total_draws,
+            frequency=frequency_list,
+            recent_frequency=recent_frequency_list,
+            hot_numbers=hot_numbers,
+            cold_numbers=cold_numbers,
+            decade_distribution=decade_distribution,
+            even_odd_ratio=even_odd_ratio,
+            sum_range=sum_range,
+            consecutive_count=consecutive_count,
+            last_draw=last_draw,
+            scheduler_running=scheduler_running,
+            next_update=next_update
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"대시보드 통계 조회 중 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"대시보드 통계 조회 중 오류: {str(e)}")
 
 @app.get("/api/latest-draw")
 async def get_latest_draw():
