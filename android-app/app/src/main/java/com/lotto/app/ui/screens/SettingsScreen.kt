@@ -314,6 +314,7 @@ fun SettingsScreen(
             title = "행운 번호 선택",
             initialNumbers = settings?.luckyNumbers ?: emptyList(),
             maxSelection = 6,
+            disabledNumbers = settings?.excludeNumbers ?: emptyList(), // 제외 번호는 선택 불가
             onDismiss = { showLuckyNumberDialog = false },
             onConfirm = { numbers ->
                 viewModel.updateLuckyNumbers(numbers)
@@ -328,6 +329,7 @@ fun SettingsScreen(
             title = "제외 번호 선택",
             initialNumbers = settings?.excludeNumbers ?: emptyList(),
             maxSelection = 20,
+            disabledNumbers = settings?.luckyNumbers ?: emptyList(), // 행운 번호는 선택 불가
             onDismiss = { showExcludeNumberDialog = false },
             onConfirm = { numbers ->
                 viewModel.updateExcludeNumbers(numbers)
@@ -571,6 +573,7 @@ fun NumberSelectionDialog(
     title: String,
     initialNumbers: List<Int>,
     maxSelection: Int,
+    disabledNumbers: List<Int> = emptyList(), // 선택 불가능한 번호들
     onDismiss: () -> Unit,
     onConfirm: (List<Int>) -> Unit
 ) {
@@ -639,37 +642,49 @@ fun NumberSelectionDialog(
                                 val number = row * 5 + col + 1
                                 if (number <= 45) {
                                     val isSelected = selectedNumbers.contains(number)
+                                    val isDisabled = disabledNumbers.contains(number)
                                     
                                     OutlinedButton(
                                         onClick = {
-                                            selectedNumbers = if (isSelected) {
-                                                selectedNumbers - number
-                                            } else {
-                                                if (selectedNumbers.size < maxSelection) {
-                                                    selectedNumbers + number
+                                            if (!isDisabled) {
+                                                selectedNumbers = if (isSelected) {
+                                                    selectedNumbers - number
                                                 } else {
-                                                    selectedNumbers
+                                                    if (selectedNumbers.size < maxSelection) {
+                                                        selectedNumbers + number
+                                                    } else {
+                                                        selectedNumbers
+                                                    }
                                                 }
                                             }
                                         },
                                         modifier = Modifier
                                             .size(40.dp),
+                                        enabled = !isDisabled,
                                         colors = ButtonDefaults.outlinedButtonColors(
                                             containerColor = if (isSelected) {
                                                 MaterialTheme.colorScheme.primary
+                                            } else if (isDisabled) {
+                                                MaterialTheme.colorScheme.surfaceVariant
                                             } else {
                                                 Color.Transparent
                                             },
                                             contentColor = if (isSelected) {
                                                 Color.White
+                                            } else if (isDisabled) {
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                                             } else {
                                                 MaterialTheme.colorScheme.onSurface
-                                            }
+                                            },
+                                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                                         ),
                                         border = BorderStroke(
                                             1.dp,
                                             if (isSelected) {
                                                 MaterialTheme.colorScheme.primary
+                                            } else if (isDisabled) {
+                                                MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                                             } else {
                                                 MaterialTheme.colorScheme.outline
                                             }
