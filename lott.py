@@ -198,10 +198,19 @@ def build_weights_from_frequency(freq_map: Dict[str, int]) -> List[float]:
     과거 출현 빈도 → 가중치.
     개선: 상위 30개만 높은 가중치, 나머지는 매우 낮은 가중치
     """
+    # freq_map이 비어있는지 확인
+    if not freq_map:
+        # 기본 가중치: 모든 번호 동일
+        return [1.0] * (LOTTO_MAX - LOTTO_MIN + 1)
+    
+    # 키 타입 확인 (문자열인지 정수인지)
+    first_key = next(iter(freq_map.keys()))
+    is_str_key = isinstance(first_key, str)
+    
     # 모든 번호의 빈도 가져오기
     freq_list = []
     for n in range(LOTTO_MIN, LOTTO_MAX+1):
-        count = freq_map.get(str(n), 0) if isinstance(next(iter(freq_map.keys())), str) else freq_map.get(n, 0)
+        count = freq_map.get(str(n), 0) if is_str_key else freq_map.get(n, 0)
         freq_list.append((n, count))
     
     # 빈도 높은 순으로 정렬
@@ -256,13 +265,16 @@ def recommend_sets(
     if lucky_numbers:
         valid_lucky_numbers = [n for n in lucky_numbers if n in population]
     
+    # 키 타입 확인 (문자열인지 정수인지)
+    is_str_key = isinstance(next(iter(freq_map.keys())), str) if freq_map else False
+    
     # 모드별 가중치 설정
     if mode == "random":
         # 완전 랜덤: 모든 번호 동일 가중치
         base_weights = [1.0 if n in population else 0.0 for n in range(LOTTO_MIN, LOTTO_MAX+1)]
     elif mode == "conservative":
         # 보수적: 상위 15개만 높은 가중치
-        freq_list = [(n, freq_map.get(str(n), 0) if isinstance(next(iter(freq_map.keys())), str) else freq_map.get(n, 0))
+        freq_list = [(n, freq_map.get(str(n), 0) if is_str_key else freq_map.get(n, 0))
                      for n in range(LOTTO_MIN, LOTTO_MAX+1) if n in population]
         freq_list.sort(key=lambda x: x[1], reverse=True)
         weights_dict = {}
@@ -274,7 +286,7 @@ def recommend_sets(
         base_weights = [weights_dict.get(n, 0.0) for n in range(LOTTO_MIN, LOTTO_MAX+1)]
     elif mode == "aggressive":
         # 공격적: 하위 번호도 적극 활용
-        freq_list = [(n, freq_map.get(str(n), 0) if isinstance(next(iter(freq_map.keys())), str) else freq_map.get(n, 0))
+        freq_list = [(n, freq_map.get(str(n), 0) if is_str_key else freq_map.get(n, 0))
                      for n in range(LOTTO_MIN, LOTTO_MAX+1) if n in population]
         freq_list.sort(key=lambda x: x[1], reverse=True)
         weights_dict = {}
