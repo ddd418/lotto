@@ -334,7 +334,9 @@ def recommend_sets(
                     # 행운 번호가 6개 이상이면 처음 6개만 사용
                     nums = valid_lucky_numbers[:6]
             else:
-                nums = weighted_sample_without_replacement(population, base_weights, 6)
+                # population에 맞게 weights 필터링
+                filtered_weights = [base_weights[n - LOTTO_MIN] for n in population]
+                nums = weighted_sample_without_replacement(population, filtered_weights, 6)
             
             nums = sorted(nums)
             if is_plausible(nums):
