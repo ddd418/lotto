@@ -1176,6 +1176,9 @@ async def recommend_numbers(
             include_bonus=stats.get("include_bonus", False)
         )
     except Exception as e:
+        import traceback
+        error_detail = f"번호 생성 중 오류: {str(e)}\n{traceback.format_exc()}"
+        print(error_detail)  # 서버 로그에 출력
         raise HTTPException(status_code=500, detail=f"번호 생성 중 오류: {str(e)}")
 
 @app.get("/api/stats", response_model=StatsResponse)
