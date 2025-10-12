@@ -48,15 +48,15 @@ class VerifyPurchaseResponse(BaseModel):
 
 # ==================== Helper 함수 ====================
 
-def get_or_create_subscription(db: Session, user: User) -> UserSubscription:
+def get_or_create_subscription(db: Session, user_id: int) -> UserSubscription:
     """구독 정보 조회 또는 생성"""
     subscription = db.query(UserSubscription).filter(
-        UserSubscription.user_id == user.id
+        UserSubscription.user_id == user_id
     ).first()
     
     if not subscription:
         subscription = UserSubscription(
-            user_id=user.id,
+            user_id=user_id,
             subscription_plan="free",
             is_pro_subscriber=False,
             is_trial_used=False
@@ -98,7 +98,7 @@ def is_subscription_valid(subscription: UserSubscription) -> bool:
 @router.post("/start-trial", response_model=SubscriptionStatusResponse)
 async def start_trial(
     request: TrialStartRequest,
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -107,7 +107,7 @@ async def start_trial(
     - 사용자당 1회만 가능
     - 30일 무료 체험 제공
     """
-    subscription = get_or_create_subscription(db, current_user)
+    subscription = get_or_create_subscription(db, user_id)
     
     # 이미 체험을 사용한 경우
     if subscription.is_trial_used:
@@ -152,7 +152,7 @@ async def start_trial(
 
 @router.get("/status", response_model=SubscriptionStatusResponse)
 async def get_subscription_status(
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -193,7 +193,7 @@ async def get_subscription_status(
 @router.post("/verify-purchase", response_model=VerifyPurchaseResponse)
 async def verify_purchase(
     request: VerifyPurchaseRequest,
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -251,7 +251,7 @@ async def verify_purchase(
 
 @router.post("/cancel")
 async def cancel_subscription(
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -287,7 +287,7 @@ async def cancel_subscription(
 @router.get("/admin/expiring-trials")
 async def get_expiring_trials(
     days: int = 3,
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -328,7 +328,7 @@ async def get_expiring_trials(
 
 @router.get("/admin/stats")
 async def get_subscription_stats(
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """

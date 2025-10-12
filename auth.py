@@ -5,11 +5,16 @@ from datetime import datetime, timedelta
 from typing import Optional, Union
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# 보안 스키마
+security = HTTPBearer()
 
 # JWT 설정
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")
@@ -93,3 +98,21 @@ def get_password_hash(password: str) -> str:
     비밀번호 해싱 (카카오 로그인에서는 사용 안함)
     """
     return pwd_context.hash(password)
+
+# ==================== 인증 의존성 함수 ====================
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> int:
+    """
+    현재 인증된 사용자 ID 반환
+    
+    Returns:
+        사용자 ID (int)
+    
+    Raises:
+        HTTPException: 토큰이 유효하지 않을 경우
+    """
+    token = credentials.credentials
+    user_id = TokenManager.get_user_id_from_token(token)
+    return user_id
