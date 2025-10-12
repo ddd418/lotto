@@ -115,20 +115,21 @@ def get_latest_draw_number(start_from: Optional[int] = None) -> Optional[int]:
     lott.py의 collect_stats 로직 참고
     
     Args:
-        start_from: 검색 시작 회차 (None이면 1회차부터, 값이 있으면 해당 회차부터)
+        start_from: 검색 시작 회차 (None이면 1회차부터, 값이 있으면 해당 회차+1부터 검색하여 최신 회차 찾기)
     
     Returns:
         최신 회차 번호 또는 None
     """
-    start_draw = start_from if start_from else 1
-    
-    if start_from:
+    # start_from이 있으면 그 다음 회차부터 검색 (증분 업데이트용)
+    if start_from and start_from > 0:
+        start_draw = start_from + 1
         logger.info(f"🔍 최신 회차 검색 시작 ({start_draw}회차부터, 연속 실패 5회까지)")
     else:
+        start_draw = 1
         logger.info(f"🔍 최신 회차 검색 시작 (1회차부터 연속 실패 5회까지)")
     
     fail_streak = 0
-    last_success_draw = 0
+    last_success_draw = start_from if start_from else 0  # start_from을 초기값으로 설정
     drw_no = start_draw
     
     while True:
