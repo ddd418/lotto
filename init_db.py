@@ -57,7 +57,8 @@ def init_database():
                     if days_diff >= 8:
                         # 8일 이상 차이 → 마지막 회차+1부터 크롤링
                         logger.info(f"🔄 마지막 회차 이후 데이터 크롤링 중 ({last_draw.draw_number + 1}회부터)")
-                        latest = get_latest_draw_number()
+                        # DB 최신 회차부터 검색 시작 (증분 업데이트)
+                        latest = get_latest_draw_number(start_from=last_draw.draw_number)
                         if latest and latest > last_draw.draw_number:
                             sync_all_winning_numbers(db, start_draw=last_draw.draw_number + 1, end_draw=latest)
                             logger.info(f"✅ {last_draw.draw_number + 1}회 ~ {latest}회 데이터 저장 완료")
@@ -66,7 +67,8 @@ def init_database():
                     else:
                         # 8일 미만 → 최근 2회차만 업데이트
                         logger.info("🔄 최신 당첨 번호 업데이트 중 (최근 2회차)")
-                        latest = get_latest_draw_number()
+                        # DB 최신 회차부터 검색 시작 (증분 업데이트)
+                        latest = get_latest_draw_number(start_from=last_draw.draw_number)
                         if latest:
                             start = max(1, latest - 1)
                             sync_all_winning_numbers(db, start_draw=start, end_draw=latest)
