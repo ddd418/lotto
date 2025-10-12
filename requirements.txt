@@ -6,6 +6,7 @@ pydantic==2.10.3
 # 데이터베이스 ORM 및 인증
 sqlalchemy==2.0.35
 alembic==1.14.0  # 데이터베이스 마이그레이션
+psycopg2-binary==2.9.9  # PostgreSQL 드라이버
 # sqlite3는 Python 기본 내장 라이브러리
 
 # 인증 및 보안
