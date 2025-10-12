@@ -38,11 +38,13 @@ https://your-app.up.railway.app/auth/kakao/callback
 ## 3. 데이터베이스 자동 초기화
 
 배포 시 `init_db.py` 스크립트가 자동으로 실행되어:
+
 - ✅ 모든 테이블 생성
 - ✅ 최근 100회차 당첨 번호 크롤링 및 저장
 - ✅ 이후 배포 시에는 최신 데이터만 업데이트
 
 > 수동으로 재초기화가 필요한 경우:
+>
 > ```bash
 > python init_db.py
 > ```
@@ -120,12 +122,13 @@ GitHub의 main 브랜치에 push하면 자동으로 재배포됩니다.
 
 1. Railway 로그에서 `init_db.py` 실행 로그 확인
 2. 수동으로 다시 실행:
+
    ```bash
    railway run python init_db.py
    ```
 
-1. `migrate_db.py` 실행 확인
-2. Volume이 올바르게 마운트되었는지 확인
+3. `migrate_db.py` 실행 확인
+4. Volume이 올바르게 마운트되었는지 확인
 
 ### 카카오 로그인 실패
 
