@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from database import engine, SessionLocal
 from models import Base, WinningNumber
-from lotto_crawler import sync_all_winning_numbers
+from lotto_crawler import sync_all_winning_numbers, get_latest_draw_number
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -34,14 +34,25 @@ def init_database():
             
             if existing_count == 0:
                 logger.info("🔄 당첨 번호 데이터 크롤링 중...")
-                sync_all_winning_numbers(limit=100)  # 최근 100회차 크롤링
-                logger.info("✅ 당첨 번호 데이터 저장 완료")
+                # 최신 회차 확인
+                latest = get_latest_draw_number()
+                if latest:
+                    # 최근 100회차만 크롤링 (최신 - 99부터 최신까지)
+                    start = max(1, latest - 99)
+                    sync_all_winning_numbers(db, start_draw=start, end_draw=latest)
+                    logger.info("✅ 당첨 번호 데이터 저장 완료")
+                else:
+                    logger.warning("⚠️ 최신 회차를 확인할 수 없습니다")
             else:
                 logger.info(f"ℹ️ 이미 {existing_count}개의 당첨 번호가 존재합니다")
                 # 최신 데이터만 업데이트
                 logger.info("🔄 최신 당첨 번호 업데이트 중...")
-                sync_all_winning_numbers(limit=10)
-                logger.info("✅ 최신 데이터 업데이트 완료")
+                latest = get_latest_draw_number()
+                if latest:
+                    # 최근 10회차만 업데이트
+                    start = max(1, latest - 9)
+                    sync_all_winning_numbers(db, start_draw=start, end_draw=latest)
+                    logger.info("✅ 최신 데이터 업데이트 완료")
         finally:
             db.close()
         
