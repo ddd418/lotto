@@ -33,35 +33,46 @@ def init_database():
             existing_count = db.query(WinningNumber).count()
             
             if existing_count == 0:
-                logger.info("🔄 당첨 번호 데이터 크롤링 중...")
-                # 빠른 최신 회차 확인 (역순으로 확인)
-                # 보통 최신 회차는 1100~1200 사이
-                logger.info("🔍 최신 회차 빠른 검색 중...")
-                latest = None
-                for check_draw in range(1200, 1000, -1):  # 1200부터 역순으로
-                    from lotto_crawler import fetch_winning_number
-                    if fetch_winning_number(check_draw):
-                        latest = check_draw
-                        logger.info(f"✅ 최신 회차 발견: {latest}회")
-                        break
-                
-                if latest:
-                    # 전체 데이터 크롤링 (1회차부터 최신까지)
-                    logger.info(f"📊 1회 ~ {latest}회 전체 크롤링 시작 (시간이 걸릴 수 있습니다)")
-                    sync_all_winning_numbers(db, start_draw=1, end_draw=latest)
-                    logger.info("✅ 당첨 번호 데이터 저장 완료")
-                else:
-                    logger.warning("⚠️ 최신 회차를 확인할 수 없습니다")
+                # DB가 비어있음 → 전체 크롤링
+                logger.info("🔄 당첨 번호 데이터 크롤링 중 (전체 데이터 없음)")
+                latest = 1193  # 현재 알려진 최신 회차 (수동 업데이트 필요)
+                logger.info(f"📊 1회 ~ {latest}회 전체 크롤링 시작 (약 5-10분 소요)")
+                sync_all_winning_numbers(db, start_draw=1, end_draw=latest)
+                logger.info("✅ 당첨 번호 데이터 저장 완료")
             else:
-                logger.info(f"ℹ️ 이미 {existing_count}개의 당첨 번호가 존재합니다")
-                # 최신 데이터만 업데이트 (최근 2회차만)
-                logger.info("🔄 최신 당첨 번호 업데이트 중...")
-                latest = get_latest_draw_number()
-                if latest:
-                    start = max(1, latest - 1)  # 최근 2회차
-                    logger.info(f"📊 {start}회 ~ {latest}회 업데이트")
-                    sync_all_winning_numbers(db, start_draw=start, end_draw=latest)
-                    logger.info("✅ 최신 데이터 업데이트 완료")
+                # DB에 데이터가 있음 → 마지막 데이터의 날짜 확인
+                from sqlalchemy import func, desc
+                from datetime import datetime, timezone
+                
+                last_draw = db.query(WinningNumber).order_by(desc(WinningNumber.draw_number)).first()
+                
+                if last_draw and last_draw.draw_date:
+                    # 마지막 추첨일과 현재 날짜 비교
+                    days_diff = (datetime.now(timezone.utc) - last_draw.draw_date).days
+                    
+                    logger.info(f"ℹ️ 이미 {existing_count}개의 당첨 번호가 존재합니다")
+                    logger.info(f"📅 마지막 회차: {last_draw.draw_number}회 ({last_draw.draw_date.strftime('%Y-%m-%d')})")
+                    logger.info(f"⏱️ 경과 일수: {days_diff}일")
+                    
+                    if days_diff >= 8:
+                        # 8일 이상 차이 → 마지막 회차+1부터 크롤링
+                        logger.info(f"🔄 마지막 회차 이후 데이터 크롤링 중 ({last_draw.draw_number + 1}회부터)")
+                        latest = get_latest_draw_number()
+                        if latest and latest > last_draw.draw_number:
+                            sync_all_winning_numbers(db, start_draw=last_draw.draw_number + 1, end_draw=latest)
+                            logger.info(f"✅ {last_draw.draw_number + 1}회 ~ {latest}회 데이터 저장 완료")
+                        else:
+                            logger.info("ℹ️ 새로운 회차가 없습니다")
+                    else:
+                        # 8일 미만 → 최근 2회차만 업데이트
+                        logger.info("🔄 최신 당첨 번호 업데이트 중 (최근 2회차)")
+                        latest = get_latest_draw_number()
+                        if latest:
+                            start = max(1, latest - 1)
+                            sync_all_winning_numbers(db, start_draw=start, end_draw=latest)
+                            logger.info(f"✅ {start}회 ~ {latest}회 데이터 업데이트 완료")
+                else:
+                    logger.warning("⚠️ 마지막 회차의 날짜 정보가 없습니다")
         finally:
             db.close()
         
