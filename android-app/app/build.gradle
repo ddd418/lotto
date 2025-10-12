@@ -100,9 +100,6 @@ dependencies {
     // Navigation
     implementation 'androidx.navigation:navigation-compose:2.7.5'
     
-    // WorkManager (알림 스케줄링)
-    implementation 'androidx.work:work-runtime-ktx:2.9.0'
-    
     // Icons Extended
     implementation 'androidx.compose.material:material-icons-extended:1.5.4'
     

@@ -40,38 +40,45 @@ class AuthRepository(
      */
     suspend fun loginWithKakao(): Result<UserProfile> = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "카카오 로그인 시작")
+            Log.d(TAG, "🔑 카카오 로그인 시작")
             
             // 1. 카카오 로그인으로 인증 코드 획득
             val authCode = getKakaoAuthCode()
-            Log.d(TAG, "카카오 인증 코드 획득 성공")
+            Log.d(TAG, "✅ 카카오 인증 코드 획득 성공")
             
             // 2. 백엔드 서버에 인증 코드 전송하여 JWT 토큰 획득
             val loginRequest = KakaoLoginRequest(authCode)
-            Log.d(TAG, "백엔드 서버에 로그인 요청 전송")
+            Log.d(TAG, "📤 백엔드 서버에 로그인 요청 전송")
             val response = authApiService.kakaoLogin(loginRequest)
             
             if (response.isSuccessful) {
                 val tokenResponse = response.body()!!
-                Log.d(TAG, "로그인 성공 - 토큰 저장")
+                Log.d(TAG, "✅ 로그인 성공 - 토큰 저장")
                 
                 // 3. 토큰 저장
                 saveTokens(tokenResponse.accessToken, tokenResponse.refreshToken)
                 
                 // 4. 사용자 정보 가져오기
+                Log.d(TAG, "📤 사용자 정보 조회 시작")
                 val userProfile = getCurrentUser()
                 
                 if (userProfile.isSuccess) {
-                    Result.success(userProfile.getOrThrow())
+                    val profile = userProfile.getOrThrow()
+                    Log.d(TAG, "✅ 최종 로그인 완료:")
+                    Log.d(TAG, "   id: ${profile.id}")
+                    Log.d(TAG, "   nickname: ${profile.nickname}")
+                    Log.d(TAG, "   email: ${profile.email}")
+                    Result.success(profile)
                 } else {
+                    Log.e(TAG, "❌ 사용자 정보 조회 실패")
                     Result.failure(userProfile.exceptionOrNull() ?: Exception("사용자 정보 조회 실패"))
                 }
             } else {
-                Log.e(TAG, "로그인 실패: ${response.message()}")
+                Log.e(TAG, "❌ 로그인 실패: ${response.message()}")
                 Result.failure(Exception("로그인 실패: ${response.message()}"))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "로그인 중 오류 발생", e)
+            Log.e(TAG, "❌ 로그인 중 오류 발생", e)
             Result.failure(e)
         }
     }
@@ -139,15 +146,27 @@ class AuthRepository(
                 return@withContext Result.failure(Exception("로그인이 필요합니다"))
             }
             
+            Log.d(TAG, "🔍 사용자 정보 조회 시작...")
             val response = authApiService.getCurrentUser("Bearer $token")
             if (response.isSuccessful) {
                 val userProfile = response.body()!!
+                Log.d(TAG, "✅ 서버로부터 받은 사용자 정보:")
+                Log.d(TAG, "   id: ${userProfile.id}")
+                Log.d(TAG, "   kakaoId: ${userProfile.kakaoId}")
+                Log.d(TAG, "   nickname: ${userProfile.nickname}")
+                Log.d(TAG, "   email: ${userProfile.email}")
+                Log.d(TAG, "   profileImage: ${userProfile.profileImage}")
+                
                 saveUserInfo(userProfile)
+                
+                Log.d(TAG, "✅ SharedPreferences에 저장 완료")
                 Result.success(userProfile)
             } else {
+                Log.e(TAG, "❌ 사용자 정보 조회 실패: ${response.message()}")
                 Result.failure(Exception("사용자 정보 조회 실패: ${response.message()}"))
             }
         } catch (e: Exception) {
+            Log.e(TAG, "❌ 사용자 정보 조회 예외 발생", e)
             Result.failure(e)
         }
     }
@@ -166,10 +185,21 @@ class AuthRepository(
      * 사용자 정보 저장
      */
     private fun saveUserInfo(userProfile: UserProfile) {
+        Log.d(TAG, "💾 사용자 정보 저장 시작:")
+        Log.d(TAG, "   저장할 nickname: ${userProfile.nickname}")
+        Log.d(TAG, "   저장할 id: ${userProfile.id}")
+        
         prefs.edit()
             .putInt(KEY_USER_ID, userProfile.id)
             .putString(KEY_NICKNAME, userProfile.nickname)
             .apply()
+        
+        // 저장 후 확인
+        val savedNickname = prefs.getString(KEY_NICKNAME, null)
+        val savedId = prefs.getInt(KEY_USER_ID, -1)
+        Log.d(TAG, "✅ SharedPreferences 저장 확인:")
+        Log.d(TAG, "   저장된 nickname: $savedNickname")
+        Log.d(TAG, "   저장된 id: $savedId")
     }
     
     /**

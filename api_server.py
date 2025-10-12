@@ -6,6 +6,8 @@ Android 앱에서 호출할 수 있는 REST API 제공
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Annotated
 from datetime import datetime, timezone
@@ -27,7 +29,7 @@ from kakao_auth import KakaoAuth
 
 # 기존 lott.py의 함수들 임포트
 from lott import (
-    collect_stats, save_stats, load_stats, recommend_sets,
+    recommend_sets,
     STATS_PATH, LOTTO_MIN, LOTTO_MAX
 )
 
@@ -79,6 +81,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# 정적 파일 제공 (카카오톡 공유 이미지 등)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # CORS 설정 (Android 앱에서 접근 허용)
 app.add_middleware(
     CORSMiddleware,
@@ -118,6 +123,9 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     stats_available: bool
+    last_draw: Optional[int] = None
+    scheduler_running: Optional[bool] = None
+    next_update: Optional[str] = None
 
 class NumberFrequency(BaseModel):
     number: int
@@ -248,9 +256,6 @@ class CheckWinningResponse(BaseModel):
 
 class UserSettingsRequest(BaseModel):
     """사용자 설정 업데이트 요청"""
-    enable_push_notifications: Optional[bool] = None
-    enable_draw_notifications: Optional[bool] = None
-    enable_winning_notifications: Optional[bool] = None
     theme_mode: Optional[str] = Field(None, description="light, dark, system")
     default_recommendation_type: Optional[str] = Field(None, description="balanced, hot, cold, random")
     lucky_numbers: Optional[List[int]] = Field(None, description="행운의 번호들")
@@ -259,9 +264,6 @@ class UserSettingsRequest(BaseModel):
 class UserSettingsResponse(BaseModel):
     """사용자 설정 응답"""
     user_id: int
-    enable_push_notifications: bool
-    enable_draw_notifications: bool
-    enable_winning_notifications: bool
     theme_mode: str
     default_recommendation_type: str
     lucky_numbers: Optional[List[int]]
@@ -307,12 +309,27 @@ async def root():
         "health": "/api/health"
     }
 
+@app.get("/kakao-share-image")
+async def get_kakao_share_image():
+    """
+    카카오톡 공유용 이미지 제공
+    """
+    image_path = Path("static/kakao_share_image.png")
+    if not image_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="카카오톡 공유 이미지를 찾을 수 없습니다"
+        )
+    return FileResponse(image_path)
+
 @app.get("/api/health", response_model=HealthResponse)
-async def health_check():
+async def health_check(db: Session = Depends(get_db)):
     """
-    서버 상태 확인
+    서버 상태 확인 (DB에서 직접 조회)
     """
-    stats = load_stats()
+    # DB에서 최신 회차 조회
+    from sqlalchemy import func
+    max_draw = db.query(func.max(WinningNumber.draw_number)).scalar()
     
     # 다음 예정된 업데이트 시간 가져오기
     next_update = None
@@ -326,8 +343,8 @@ async def health_check():
     return HealthResponse(
         status="healthy",
         version="2.0.0",
-        stats_available=stats is not None,
-        last_draw=stats.get("last_draw") if stats else None,
+        stats_available=max_draw is not None,
+        last_draw=max_draw,
         scheduler_running=scheduler.running,
         next_update=next_update
     )
@@ -358,6 +375,12 @@ async def kakao_login(
         
         if not user:
             # 새 사용자 생성
+            print(f"🆕 새 사용자 생성 중...")
+            print(f"   kakao_id: {user_data['kakao_id']}")
+            print(f"   email: {user_data['email']}")
+            print(f"   nickname: {user_data['nickname']}")
+            print(f"   profile_image: {user_data['profile_image']}")
+            
             user = User(
                 kakao_id=user_data["kakao_id"],
                 email=user_data["email"],
@@ -369,17 +392,25 @@ async def kakao_login(
             db.commit()
             db.refresh(user)
             
+            print(f"✅ 사용자 생성 완료: ID={user.id}, nickname={user.nickname}")
+            
             # 기본 설정 생성
             user_settings = UserSettings(user_id=user.id)
             db.add(user_settings)
             db.commit()
         else:
             # 기존 사용자 정보 업데이트
+            print(f"♻️ 기존 사용자 업데이트 중 (ID={user.id})...")
+            print(f"   이전 nickname: {user.nickname}")
+            print(f"   새로운 nickname: {user_data['nickname']}")
+            
             user.email = user_data["email"]
             user.nickname = user_data["nickname"]
             user.profile_image = user_data["profile_image"]
             user.last_login_at = datetime.now(timezone.utc)
             db.commit()
+            
+            print(f"✅ 업데이트 완료: nickname={user.nickname}")
         
         # JWT 토큰 생성
         access_token = TokenManager.create_access_token(data={"sub": str(user.id)})
@@ -403,7 +434,14 @@ async def get_me(current_user: User = Depends(get_current_user)):
     """
     현재 로그인한 사용자 정보 조회
     """
-    return UserProfile(
+    print(f"🔍 /auth/me 호출됨:")
+    print(f"   user_id: {current_user.id}")
+    print(f"   kakao_id: {current_user.kakao_id}")
+    print(f"   nickname: {current_user.nickname}")
+    print(f"   email: {current_user.email}")
+    print(f"   profile_image: {current_user.profile_image}")
+    
+    user_profile = UserProfile(
         id=current_user.id,
         kakao_id=current_user.kakao_id,
         email=current_user.email,
@@ -412,6 +450,10 @@ async def get_me(current_user: User = Depends(get_current_user)):
         created_at=current_user.created_at,
         last_login_at=current_user.last_login_at
     )
+    
+    print(f"✅ 반환될 UserProfile: id={user_profile.id}, nickname={user_profile.nickname}")
+    
+    return user_profile
 
 @app.post("/auth/logout")
 async def logout(current_user: User = Depends(get_current_user)):
@@ -1014,9 +1056,6 @@ async def get_user_settings(
         
         return UserSettingsResponse(
             user_id=settings.user_id,
-            enable_push_notifications=settings.enable_push_notifications,
-            enable_draw_notifications=settings.enable_draw_notifications,
-            enable_winning_notifications=settings.enable_winning_notifications,
             theme_mode=settings.theme_mode,
             default_recommendation_type=settings.default_recommendation_type,
             lucky_numbers=settings.lucky_numbers,
@@ -1052,12 +1091,6 @@ async def update_user_settings(
             db.add(settings)
         
         # 요청에 포함된 필드만 업데이트
-        if request.enable_push_notifications is not None:
-            settings.enable_push_notifications = request.enable_push_notifications
-        if request.enable_draw_notifications is not None:
-            settings.enable_draw_notifications = request.enable_draw_notifications
-        if request.enable_winning_notifications is not None:
-            settings.enable_winning_notifications = request.enable_winning_notifications
         if request.theme_mode is not None:
             if request.theme_mode not in ["light", "dark", "system"]:
                 raise HTTPException(
@@ -1120,10 +1153,36 @@ async def update_user_settings(
 # 번호 추천 엔드포인트
 # -----------------------------
 
+def calculate_frequency_from_db(db: Session) -> dict:
+    """
+    DB에서 모든 당첨번호를 읽어 빈도수 계산
+    """
+    from collections import Counter
+    
+    # 모든 당첨번호 조회
+    all_numbers = db.query(WinningNumber).all()
+    
+    if not all_numbers:
+        return {}
+    
+    # 모든 번호 수집
+    counter = Counter()
+    for record in all_numbers:
+        counter[record.number1] += 1
+        counter[record.number2] += 1
+        counter[record.number3] += 1
+        counter[record.number4] += 1
+        counter[record.number5] += 1
+        counter[record.number6] += 1
+        # 보너스 번호는 제외 (일반 번호와 다른 의미)
+    
+    return dict(counter)
+
 @app.post("/api/recommend", response_model=RecommendResponse)
 async def recommend_numbers(
     request: RecommendRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
     로또 번호 추천 API
@@ -1134,29 +1193,45 @@ async def recommend_numbers(
     Returns:
         추천된 로또 번호 세트들 (사용자의 행운번호/제외번호 반영)
     """
-    # 저장된 통계 로드
-    stats = load_stats()
-    if not stats:
+    from sqlalchemy import func
+    
+    # DB에서 실시간 빈도수 계산
+    frequency = calculate_frequency_from_db(db)
+    if not frequency:
         raise HTTPException(
             status_code=404,
-            detail="통계 데이터가 없습니다. /api/update를 먼저 호출하세요."
+            detail="당첨번호 데이터가 없습니다."
         )
+    
+    # 최신 회차 조회
+    max_draw = db.query(func.max(WinningNumber.draw_number)).scalar()
+    if not max_draw:
+        raise HTTPException(
+            status_code=404,
+            detail="당첨번호 데이터가 없습니다."
+        )
+    
+    # stats 딕셔너리 생성 (recommend_sets 함수 호환)
+    stats = {
+        "frequency": frequency,
+        "last_draw": max_draw,
+        "include_bonus": False
+    }
     
     try:
         # 사용자 설정에서 행운번호/제외번호 가져오기
         lucky_numbers = None
         exclude_numbers = None
         
-        with Session(engine) as session:
-            user_settings = session.query(UserSettings).filter_by(
-                user_id=current_user.id  # User 객체의 id 속성 사용
-            ).first()
-            
-            if user_settings:
-                if user_settings.lucky_numbers:
-                    lucky_numbers = user_settings.lucky_numbers
-                if user_settings.exclude_numbers:
-                    exclude_numbers = user_settings.exclude_numbers
+        user_settings = db.query(UserSettings).filter_by(
+            user_id=current_user.id  # User 객체의 id 속성 사용
+        ).first()
+        
+        if user_settings:
+            if user_settings.lucky_numbers:
+                lucky_numbers = user_settings.lucky_numbers
+            if user_settings.exclude_numbers:
+                exclude_numbers = user_settings.exclude_numbers
         
         # 번호 추천 생성 (행운번호/제외번호 반영)
         sets = recommend_sets(
@@ -1450,20 +1525,32 @@ async def get_dashboard_analytics(
         raise HTTPException(status_code=500, detail=f"대시보드 통계 조회 중 오류: {str(e)}")
 
 @app.get("/api/latest-draw")
-async def get_latest_draw():
+async def get_latest_draw(db: Session = Depends(get_db)):
     """
-    저장된 최신 회차 정보 조회
+    저장된 최신 회차 정보 조회 (DB에서 직접 조회)
     """
-    stats = load_stats()
-    if not stats:
-        raise HTTPException(status_code=404, detail="통계 데이터가 없습니다.")
-    
-    return {
-        "success": True,
-        "last_draw": stats.get("last_draw", 0),
-        "generated_at": stats.get("generated_at", ""),
-        "include_bonus": stats.get("include_bonus", False)
-    }
+    try:
+        # DB에서 최신 회차 조회
+        from sqlalchemy import func
+        max_draw = db.query(func.max(WinningNumber.draw_number)).scalar()
+        
+        if not max_draw:
+            raise HTTPException(status_code=404, detail="저장된 당첨 번호가 없습니다.")
+        
+        # 최신 회차의 추첨일 조회
+        latest = db.query(WinningNumber).filter(WinningNumber.draw_number == max_draw).first()
+        
+        return {
+            "success": True,
+            "last_draw": max_draw,
+            "generated_at": latest.draw_date.isoformat() if latest.draw_date else datetime.now(timezone.utc).isoformat(),
+            "include_bonus": False
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"최신 회차 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail="최신 회차 조회 중 오류가 발생했습니다.")
 
 # -----------------------------
 # 자동 업데이트 함수
@@ -1622,12 +1709,8 @@ def setup_scheduler():
 if __name__ == "__main__":
     import uvicorn
     
-    # 시작 시 통계 파일이 없으면 자동 생성
-    if not STATS_PATH.exists():
-        print("📊 초기 데이터 수집 중...")
-        freq, last_draw, draws_store = collect_stats(max_draw=None, include_bonus=False)
-        save_stats(freq, last_draw, False, draws_store)
-        print(f"✅ 1~{last_draw}회차 데이터 수집 완료!\n")
+    # DB에서 데이터를 읽으므로 통계 파일 생성 불필요
+    # (모든 데이터는 DB에서 실시간 조회)
     
     # 스케줄러 정리를 위한 atexit 핸들러 등록
     atexit.register(lambda: scheduler.shutdown() if scheduler.running else None)

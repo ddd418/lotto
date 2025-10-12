@@ -86,15 +86,33 @@ class KakaoAuth:
         """
         카카오 사용자 정보에서 필요한 데이터 추출
         """
+        import json
+        
+        # 디버깅용 로그 추가
+        print("=" * 80)
+        print("🔍 카카오 사용자 정보 원본:")
+        print(json.dumps(kakao_user_info, indent=2, ensure_ascii=False))
+        print("=" * 80)
+        
         kakao_account = kakao_user_info.get("kakao_account", {})
         profile = kakao_account.get("profile", {})
         
-        return {
+        print(f"📋 kakao_account 존재 여부: {bool(kakao_account)}")
+        print(f"📋 profile 존재 여부: {bool(profile)}")
+        print(f"📋 profile 내용: {profile}")
+        
+        extracted_data = {
             "kakao_id": str(kakao_user_info.get("id")),
             "email": kakao_account.get("email"),
             "nickname": profile.get("nickname", "카카오사용자"),
             "profile_image": profile.get("profile_image_url"),
         }
+        
+        print(f"✅ 추출된 사용자 데이터:")
+        print(json.dumps(extracted_data, indent=2, ensure_ascii=False))
+        print("=" * 80)
+        
+        return extracted_data
     
     @staticmethod
     def get_authorization_url() -> str:

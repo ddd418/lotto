@@ -128,14 +128,14 @@ class UserSettings(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
     
-    # 알림 설정
-    enable_push_notifications = Column(Boolean, default=True)
-    enable_draw_notifications = Column(Boolean, default=True)  # 추첨일 알림
-    enable_winning_notifications = Column(Boolean, default=True)  # 당첨 결과 알림
-    
     # 앱 설정
-    theme_mode = Column(String(10), default="system")  # light, dark, system
+    theme_mode = Column(String(10), default="light")  # light, dark, system (기본값: light)
     default_recommendation_type = Column(String(20), default="balanced")
+    
+    # 알림 설정
+    enable_push_notifications = Column(Boolean, default=False)  # 푸시 알림 설정
+    enable_draw_notifications = Column(Boolean, default=False)  # 추첨일 알림
+    enable_winning_notifications = Column(Boolean, default=False)  # 당첨 확인 알림
     
     # 개인화 설정
     lucky_numbers = Column(JSON)  # 행운의 번호들 [7, 13, 21, ...]

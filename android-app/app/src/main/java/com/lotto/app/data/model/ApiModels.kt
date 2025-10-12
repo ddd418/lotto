@@ -229,15 +229,6 @@ data class WinningHistoryItem(
  * 사용자 설정 요청
  */
 data class UserSettingsRequest(
-    @SerializedName("enable_push_notifications")
-    val enablePushNotifications: Boolean? = null,
-    
-    @SerializedName("enable_draw_notifications")
-    val enableDrawNotifications: Boolean? = null,
-    
-    @SerializedName("enable_winning_notifications")
-    val enableWinningNotifications: Boolean? = null,
-    
     @SerializedName("theme_mode")
     val themeMode: String? = null,
     
@@ -257,15 +248,6 @@ data class UserSettingsRequest(
 data class UserSettingsResponse(
     @SerializedName("user_id")
     val userId: Int,
-    
-    @SerializedName("enable_push_notifications")
-    val enablePushNotifications: Boolean,
-    
-    @SerializedName("enable_draw_notifications")
-    val enableDrawNotifications: Boolean,
-    
-    @SerializedName("enable_winning_notifications")
-    val enableWinningNotifications: Boolean,
     
     @SerializedName("theme_mode")
     val themeMode: String,

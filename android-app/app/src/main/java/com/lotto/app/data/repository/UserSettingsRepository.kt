@@ -40,9 +40,6 @@ class UserSettingsRepository(
      * 사용자 설정 업데이트
      */
     suspend fun updateSettings(
-        enablePushNotifications: Boolean? = null,
-        enableDrawNotifications: Boolean? = null,
-        enableWinningNotifications: Boolean? = null,
         themeMode: String? = null,
         defaultRecommendationType: String? = null,
         luckyNumbers: List<Int>? = null,
@@ -51,9 +48,6 @@ class UserSettingsRepository(
         try {
             Log.d(TAG, "사용자 설정 업데이트 시작")
             val request = UserSettingsRequest(
-                enablePushNotifications = enablePushNotifications,
-                enableDrawNotifications = enableDrawNotifications,
-                enableWinningNotifications = enableWinningNotifications,
                 themeMode = themeMode,
                 defaultRecommendationType = defaultRecommendationType,
                 luckyNumbers = luckyNumbers,
@@ -94,20 +88,5 @@ class UserSettingsRepository(
      */
     suspend fun updateTheme(theme: String): Result<UserSettingsResponse> {
         return updateSettings(themeMode = theme)
-    }
-    
-    /**
-     * 알림 설정 업데이트
-     */
-    suspend fun updateNotificationSettings(
-        push: Boolean? = null,
-        draw: Boolean? = null,
-        winning: Boolean? = null
-    ): Result<UserSettingsResponse> {
-        return updateSettings(
-            enablePushNotifications = push,
-            enableDrawNotifications = draw,
-            enableWinningNotifications = winning
-        )
     }
 }

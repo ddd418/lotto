@@ -1,5 +1,6 @@
 package com.lotto.app.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lotto.app.data.model.*
@@ -24,6 +25,10 @@ sealed class UiState<out T> {
  * MVVM 패턴으로 비즈니스 로직과 UI 상태 관리
  */
 class LottoViewModel : ViewModel() {
+    
+    companion object {
+        private const val TAG = "LottoViewModel"
+    }
     
     private val repository = LottoRepository()
     
@@ -109,11 +114,19 @@ class LottoViewModel : ViewModel() {
         viewModelScope.launch {
             _latestDrawState.value = UiState.Loading
             
+            android.util.Log.d(TAG, "🔍 최신 회차 조회 시작...")
+            
             repository.getLatestDraw()
                 .onSuccess { response ->
+                    android.util.Log.d(TAG, "✅ 최신 회차 조회 성공:")
+                    android.util.Log.d(TAG, "   lastDraw: ${response.lastDraw}")
+                    android.util.Log.d(TAG, "   generatedAt: ${response.generatedAt}")
+                    
                     _latestDrawState.value = UiState.Success(response)
                 }
                 .onFailure { error ->
+                    android.util.Log.e(TAG, "❌ 최신 회차 조회 실패: ${error.message}")
+                    
                     _latestDrawState.value = UiState.Error(
                         error.message ?: "최신 회차 조회 중 오류가 발생했습니다"
                     )

@@ -6,7 +6,7 @@ pydantic==2.10.3
 # 데이터베이스 ORM 및 인증
 sqlalchemy==2.0.35
 alembic==1.14.0  # 데이터베이스 마이그레이션
-sqlite3  # 기본 내장 (개발용)
+# sqlite3는 Python 기본 내장 라이브러리
 
 # 인증 및 보안
 python-jose[cryptography]==3.3.0  # JWT 토큰
@@ -25,6 +25,7 @@ tqdm==4.67.1
 
 # 추가 유틸리티
 requests==2.32.3  # HTTP 요청 (옵션)
+Pillow==10.4.0  # 이미지 생성 및 처리
 
 # 개발 및 배포 (옵션)
 python-dotenv==1.0.1  # 환경변수 관리

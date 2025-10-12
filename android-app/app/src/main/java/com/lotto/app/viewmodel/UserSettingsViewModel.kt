@@ -136,48 +136,12 @@ class UserSettingsViewModel : ViewModel() {
     }
     
     /**
-     * 알림 설정 업데이트
-     */
-    fun updateNotificationSettings(
-        drawNotification: Boolean,
-        winningNotification: Boolean,
-        promotionNotification: Boolean
-    ) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            
-            Log.d(TAG, "알림 설정 업데이트: draw=$drawNotification, winning=$winningNotification, promotion=$promotionNotification")
-            
-            repository.updateNotificationSettings(
-                push = promotionNotification,
-                draw = drawNotification,
-                winning = winningNotification
-            )
-                .onSuccess { settings ->
-                    _settings.value = settings
-                    _successMessage.value = "알림 설정이 저장되었습니다"
-                    Log.d(TAG, "✅ 알림 설정 업데이트 완료")
-                }
-                .onFailure { e ->
-                    _error.value = "알림 설정 저장에 실패했습니다: ${e.message}"
-                    Log.e(TAG, "❌ 알림 설정 업데이트 실패", e)
-                }
-            
-            _isLoading.value = false
-        }
-    }
-    
-    /**
      * 전체 설정 업데이트
      */
     fun updateAllSettings(
         luckyNumbers: List<Int>?,
         excludeNumbers: List<Int>?,
-        themeMode: String?,
-        drawNotification: Boolean?,
-        winningNotification: Boolean?,
-        promotionNotification: Boolean?
+        themeMode: String?
     ) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -188,10 +152,7 @@ class UserSettingsViewModel : ViewModel() {
             repository.updateSettings(
                 luckyNumbers = luckyNumbers,
                 excludeNumbers = excludeNumbers,
-                themeMode = themeMode,
-                enableDrawNotifications = drawNotification,
-                enableWinningNotifications = winningNotification,
-                enablePushNotifications = promotionNotification
+                themeMode = themeMode
             )
                 .onSuccess { settings ->
                     _settings.value = settings

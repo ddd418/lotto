@@ -413,6 +413,7 @@ fun LatestWinningCard(
             
             Spacer(modifier = Modifier.height(12.dp))
             
+            // 일반 번호
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -421,12 +422,21 @@ fun LatestWinningCard(
                 numbers.forEach { number ->
                     LottoBall(number = number, size = 38.dp)
                 }
-                
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "보너스",
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // 보너스 번호
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "보너스",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(end = 8.dp)
                 )
                 
                 LottoBall(

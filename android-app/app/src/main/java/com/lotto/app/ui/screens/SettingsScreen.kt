@@ -141,59 +141,6 @@ fun SettingsScreen(
                             )
                         }
                         
-                        // 알림 설정
-                        item {
-                            SectionTitle("알림 설정")
-                        }
-                        
-                        item {
-                            SwitchSettingCard(
-                                title = "추첨일 알림",
-                                subtitle = "매주 토요일 추첨 전 알림",
-                                icon = Icons.Default.Notifications,
-                                checked = currentSettings.enableDrawNotifications,
-                                onCheckedChange = { checked ->
-                                    viewModel.updateNotificationSettings(
-                                        drawNotification = checked,
-                                        winningNotification = currentSettings.enableWinningNotifications,
-                                        promotionNotification = currentSettings.enablePushNotifications
-                                    )
-                                }
-                            )
-                        }
-                        
-                        item {
-                            SwitchSettingCard(
-                                title = "당첨 결과 알림",
-                                subtitle = "당첨 번호 발표 시 알림",
-                                icon = Icons.Default.CheckCircle,
-                                checked = currentSettings.enableWinningNotifications,
-                                onCheckedChange = { checked ->
-                                    viewModel.updateNotificationSettings(
-                                        drawNotification = currentSettings.enableDrawNotifications,
-                                        winningNotification = checked,
-                                        promotionNotification = currentSettings.enablePushNotifications
-                                    )
-                                }
-                            )
-                        }
-                        
-                        item {
-                            SwitchSettingCard(
-                                title = "푸시 알림",
-                                subtitle = "이벤트 및 프로모션 소식",
-                                icon = Icons.Default.Info,
-                                checked = currentSettings.enablePushNotifications,
-                                onCheckedChange = { checked ->
-                                    viewModel.updateNotificationSettings(
-                                        drawNotification = currentSettings.enableDrawNotifications,
-                                        winningNotification = currentSettings.enableWinningNotifications,
-                                        promotionNotification = checked
-                                    )
-                                }
-                            )
-                        }
-                        
                         // 화면 설정
                         item {
                             SectionTitle("화면 설정")
@@ -221,6 +168,12 @@ fun SettingsScreen(
                         item {
                             val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
                             val currentUser by authViewModel.currentUser.collectAsState()
+                            
+                            // 디버깅용 로그 추가
+                            android.util.Log.d("SettingsScreen", "🔍 로그인 상태 확인:")
+                            android.util.Log.d("SettingsScreen", "   isLoggedIn: $isLoggedIn")
+                            android.util.Log.d("SettingsScreen", "   currentUser: $currentUser")
+                            android.util.Log.d("SettingsScreen", "   currentUser?.nickname: ${currentUser?.nickname}")
                             
                             if (isLoggedIn && currentUser != null) {
                                 // 로그인 상태
@@ -283,12 +236,122 @@ fun SettingsScreen(
                         }
                         
                         item {
-                            SettingCard(
-                                title = "버전 정보",
-                                subtitle = "1.0.0",
-                                icon = Icons.Default.Info,
-                                onClick = {}
-                            )
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    // 앱 아이콘
+                                    Box(
+                                        modifier = Modifier
+                                            .size(80.dp)
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(
+                                                Brush.linearGradient(
+                                                    colors = listOf(
+                                                        MaterialTheme.colorScheme.primary,
+                                                        MaterialTheme.colorScheme.tertiary
+                                                    )
+                                                )
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "🎱",
+                                            style = MaterialTheme.typography.displayMedium
+                                        )
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    
+                                    // 앱 이름
+                                    Text(
+                                        text = "로또 번호 추천",
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    
+                                    // 버전 정보
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.surface,
+                                        tonalElevation = 2.dp
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Info,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Text(
+                                                text = "Version 1.0.0",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    
+                                    Divider(
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    
+                                    // 개발자 정보
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.secondary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column(horizontalAlignment = Alignment.Start) {
+                                            Text(
+                                                text = "Developer",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                            )
+                                            Text(
+                                                text = "안재현",
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.secondary
+                                            )
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    
+                                    // 저작권
+                                    Text(
+                                        text = "© 2025 All rights reserved",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -596,40 +659,6 @@ fun NumberSelectionDialog(
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // 선택된 번호 표시
-                if (selectedNumbers.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        selectedNumbers.sorted().forEach { number ->
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        Brush.radialGradient(
-                                            colors = listOf(
-                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
-                                                MaterialTheme.colorScheme.primary
-                                            )
-                                        )
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = number.toString(),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                
                 // 번호 그리드
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp)

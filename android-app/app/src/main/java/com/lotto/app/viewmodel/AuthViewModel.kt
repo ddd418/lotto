@@ -1,6 +1,7 @@
 package com.lotto.app.viewmodel
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lotto.app.data.model.UserProfile
@@ -16,6 +17,10 @@ import kotlinx.coroutines.launch
 class AuthViewModel(
     private val authRepository: AuthRepository
 ) : ViewModel() {
+    
+    companion object {
+        private const val TAG = "AuthViewModel"
+    }
     
     // 로그인 상태
     private val _loginState = MutableStateFlow<UiState<UserProfile>>(UiState.Idle)
@@ -53,20 +58,30 @@ class AuthViewModel(
         
         viewModelScope.launch {
             try {
+                Log.d(TAG, "🔑 카카오 로그인 시작")
                 val result = authRepository.loginWithKakao()
                 
                 if (result.isSuccess) {
                     val userProfile = result.getOrThrow()
+                    Log.d(TAG, "✅ 카카오 로그인 성공:")
+                    Log.d(TAG, "   id: ${userProfile.id}")
+                    Log.d(TAG, "   nickname: ${userProfile.nickname}")
+                    Log.d(TAG, "   email: ${userProfile.email}")
+                    
                     _currentUser.value = userProfile
                     _isLoggedIn.value = true
                     _loginState.value = UiState.Success(userProfile)
+                    
+                    Log.d(TAG, "✅ ViewModel 상태 업데이트 완료")
                 } else {
                     val error = result.exceptionOrNull()
+                    Log.e(TAG, "❌ 카카오 로그인 실패: ${error?.message}")
                     _loginState.value = UiState.Error(
                         error?.message ?: "로그인에 실패했습니다"
                     )
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "❌ 카카오 로그인 예외 발생", e)
                 _loginState.value = UiState.Error(
                     e.message ?: "로그인 중 오류가 발생했습니다"
                 )
@@ -80,15 +95,26 @@ class AuthViewModel(
     fun getCurrentUser() {
         viewModelScope.launch {
             try {
+                Log.d(TAG, "🔍 AuthViewModel.getCurrentUser() 호출")
                 val result = authRepository.getCurrentUser()
                 
                 if (result.isSuccess) {
-                    _currentUser.value = result.getOrThrow()
+                    val userProfile = result.getOrThrow()
+                    Log.d(TAG, "✅ 사용자 정보 조회 성공:")
+                    Log.d(TAG, "   id: ${userProfile.id}")
+                    Log.d(TAG, "   nickname: ${userProfile.nickname}")
+                    Log.d(TAG, "   email: ${userProfile.email}")
+                    
+                    _currentUser.value = userProfile
+                    
+                    Log.d(TAG, "✅ _currentUser.value 업데이트 완료: ${_currentUser.value?.nickname}")
                 } else {
+                    Log.e(TAG, "❌ 사용자 정보 조회 실패 - 로그아웃 처리")
                     // 사용자 정보 조회 실패 시 로그아웃 처리
                     logout()
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "❌ 사용자 정보 조회 예외 발생 - 로그아웃 처리", e)
                 // 오류 발생 시 로그아웃 처리
                 logout()
             }

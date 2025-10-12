@@ -18,7 +18,7 @@ object RetrofitClient {
     // - 에뮬레이터: "http://10.0.2.2:8000/"
     // - 실제 기기: "http://your-pc-ip:8000/"
     // 프로덕션: "http://your-server-ip:8000/"
-    private const val BASE_URL = "http://10.0.2.2:8000/"
+    private const val BASE_URL = "http://192.168.0.6:8000/"
     
     private var applicationContext: Context? = null
     

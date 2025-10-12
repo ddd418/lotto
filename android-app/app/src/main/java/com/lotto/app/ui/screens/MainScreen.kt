@@ -112,8 +112,14 @@ fun MainScreen(
                             )
                         }
                         
+                        // 동적으로 최신 회차 표시
+                        val drawText = when (val currentState = latestDrawState) {
+                            is UiState.Success -> "${currentState.data.lastDraw}회차 데이터 분석을 바탕으로 4가지 전략의 번호를 추천해드립니다"
+                            else -> "최신 데이터 분석을 바탕으로 4가지 전략의 번호를 추천해드립니다"
+                        }
+                        
                         Text(
-                            text = "1192회차 데이터 분석을 바탕으로 4가지 전략의 번호를 추천해드립니다",
+                            text = drawText,
                             fontSize = 14.sp,
                             color = NotionColors.TextSecondary,
                             lineHeight = 20.sp

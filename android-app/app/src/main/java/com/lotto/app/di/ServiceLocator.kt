@@ -14,8 +14,8 @@ import retrofit2.converter.gson.GsonConverterFactory
  */
 object ServiceLocator {
     
-    private const val BASE_URL = "http://10.0.2.2:8000/" // Android 에뮬레이터용
-    // private const val BASE_URL = "http://192.168.x.x:8000/" // 실제 기기용
+    // private const val BASE_URL = "http://10.0.2.2:8000/" // Android 에뮬레이터용
+    private const val BASE_URL = "http://192.168.0.6:8000/" // 실제 기기용
     
     private val retrofit = Retrofit.Builder()
         .baseUrl(BASE_URL)

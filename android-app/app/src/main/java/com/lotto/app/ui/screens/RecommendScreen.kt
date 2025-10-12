@@ -209,61 +209,67 @@ fun RecommendScreen(
                         
                         item { Spacer(modifier = Modifier.height(16.dp)) }
                         
-                        // 카카오톡 공유 버튼
+                        // 공유 버튼들을 Row로 배치
                         item {
-                            Button(
-                                onClick = {
-                                    shareToKakao(context, response.sets, response.lastDraw)
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFFFE812) // 카카오 옐로우
-                                )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text(
-                                    text = "💬 카카오톡으로 공유",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF3C1E1E)
-                                )
-                            }
-                        }
-                        
-                        item { Spacer(modifier = Modifier.height(8.dp)) }
-                        
-                        // 일반 공유 버튼
-                        item {
-                            OutlinedButton(
-                                onClick = {
-                                    // 공유할 텍스트 생성
-                                    val shareText = buildShareText(response.sets, response.lastDraw)
-                                    
-                                    // Android 공유 Intent
-                                    val sendIntent = Intent().apply {
-                                        action = Intent.ACTION_SEND
-                                        putExtra(Intent.EXTRA_TEXT, shareText)
-                                        type = "text/plain"
-                                    }
-                                    
-                                    val shareIntent = Intent.createChooser(sendIntent, "로또 번호 공유하기")
-                                    context.startActivity(shareIntent)
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = null
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "다른 방법으로 공유",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
+                                // 카카오톡 공유 버튼
+                                Button(
+                                    onClick = {
+                                        shareToKakao(context, response.sets, response.lastDraw)
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(56.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFFFE812) // 카카오 옐로우
+                                    )
+                                ) {
+                                    Text(
+                                        text = "💬 카톡",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF3C1E1E)
+                                    )
+                                }
+                                
+                                // 일반 공유 버튼
+                                Button(
+                                    onClick = {
+                                        // 공유할 텍스트 생성
+                                        val shareText = buildShareText(response.sets, response.lastDraw)
+                                        
+                                        // Android 공유 Intent
+                                        val sendIntent = Intent().apply {
+                                            action = Intent.ACTION_SEND
+                                            putExtra(Intent.EXTRA_TEXT, shareText)
+                                            type = "text/plain"
+                                        }
+                                        
+                                        val shareIntent = Intent.createChooser(sendIntent, "로또 번호 공유하기")
+                                        context.startActivity(shareIntent)
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(56.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "친구에게 공유",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                         
@@ -384,7 +390,7 @@ private fun buildShareText(sets: List<com.lotto.app.data.model.LottoSet>, lastDr
 }
 
 /**
- * 카카오톡으로 공유하기
+ * 카카오톡으로 공유하기 (이미지 포함)
  */
 private fun shareToKakao(
     context: Context,
@@ -399,9 +405,9 @@ private fun shareToKakao(
     // 카카오톡 피드 템플릿 생성
     val feedTemplate = FeedTemplate(
         content = Content(
-            title = "🎰 AI 로또 번호 추천",
-            description = "과거 ${lastDraw}회차 데이터 기반 분석\n\n$numbersText",
-            imageUrl = "https://via.placeholder.com/400x200/FFD700/000000?text=LOTTO",
+            title = "🎰 AI 로또 번호 추천 🤖",
+            description = "AI가 과거 ${lastDraw}회차 데이터를 분석한 추천 번호\n\n$numbersText\n\n행운을 빕니다! 🍀",
+            imageUrl = "http://192.168.0.6:8000/kakao-share-image",
             link = Link(
                 webUrl = "https://www.dhlottery.co.kr",
                 mobileWebUrl = "https://m.dhlottery.co.kr"
@@ -420,12 +426,17 @@ private fun shareToKakao(
     
     // 카카오톡 설치 확인 및 공유
     if (ShareClient.instance.isKakaoTalkSharingAvailable(context)) {
-        // 카카오톡으로 공유
+        // 카카오톡으로 공유 (앱이 열립니다)
         ShareClient.instance.shareDefault(context, feedTemplate) { sharingResult, error ->
             if (error != null) {
-                Toast.makeText(context, "카카오톡 공유 실패: ${error.message}", Toast.LENGTH_SHORT).show()
+                // 실제 에러가 발생한 경우에만 메시지 표시
+                Toast.makeText(context, "공유 실패: ${error.message}", Toast.LENGTH_SHORT).show()
             } else if (sharingResult != null) {
-                Toast.makeText(context, "카카오톡 공유 성공!", Toast.LENGTH_SHORT).show()
+                // 공유 성공 시 - 사용자가 채팅방을 선택하고 전송한 후에 호출됨
+                context.startActivity(sharingResult.intent)
+                
+                // 선택사항: 성공 메시지를 보여주고 싶다면 주석 해제
+                // Toast.makeText(context, "카카오톡으로 공유되었습니다", Toast.LENGTH_SHORT).show()
             }
         }
     } else {
@@ -437,7 +448,7 @@ private fun shareToKakao(
             val intent = Intent(Intent.ACTION_VIEW, sharerUrl)
             context.startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(context, "카카오톡 공유를 사용할 수 없습니다", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "카카오톡을 사용할 수 없습니다", Toast.LENGTH_SHORT).show()
         }
     }
 }
