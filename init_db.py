@@ -34,23 +34,32 @@ def init_database():
             
             if existing_count == 0:
                 logger.info("🔄 당첨 번호 데이터 크롤링 중...")
-                # 최신 회차 확인
-                latest = get_latest_draw_number()
+                # 빠른 최신 회차 확인 (역순으로 확인)
+                # 보통 최신 회차는 1100~1200 사이
+                logger.info("🔍 최신 회차 빠른 검색 중...")
+                latest = None
+                for check_draw in range(1200, 1000, -1):  # 1200부터 역순으로
+                    from lotto_crawler import fetch_winning_number
+                    if fetch_winning_number(check_draw):
+                        latest = check_draw
+                        logger.info(f"✅ 최신 회차 발견: {latest}회")
+                        break
+                
                 if latest:
-                    # 최근 100회차만 크롤링 (최신 - 99부터 최신까지)
-                    start = max(1, latest - 99)
-                    sync_all_winning_numbers(db, start_draw=start, end_draw=latest)
+                    # 전체 데이터 크롤링 (1회차부터 최신까지)
+                    logger.info(f"📊 1회 ~ {latest}회 전체 크롤링 시작 (시간이 걸릴 수 있습니다)")
+                    sync_all_winning_numbers(db, start_draw=1, end_draw=latest)
                     logger.info("✅ 당첨 번호 데이터 저장 완료")
                 else:
                     logger.warning("⚠️ 최신 회차를 확인할 수 없습니다")
             else:
                 logger.info(f"ℹ️ 이미 {existing_count}개의 당첨 번호가 존재합니다")
-                # 최신 데이터만 업데이트
+                # 최신 데이터만 업데이트 (최근 2회차만)
                 logger.info("🔄 최신 당첨 번호 업데이트 중...")
                 latest = get_latest_draw_number()
                 if latest:
-                    # 최근 10회차만 업데이트
-                    start = max(1, latest - 9)
+                    start = max(1, latest - 1)  # 최근 2회차
+                    logger.info(f"📊 {start}회 ~ {latest}회 업데이트")
                     sync_all_winning_numbers(db, start_draw=start, end_draw=latest)
                     logger.info("✅ 최신 데이터 업데이트 완료")
         finally:
