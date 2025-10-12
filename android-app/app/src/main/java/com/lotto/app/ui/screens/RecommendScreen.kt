@@ -407,7 +407,7 @@ private fun shareToKakao(
         content = Content(
             title = "🎰 AI 로또 번호 추천 🤖",
             description = "AI가 과거 ${lastDraw}회차 데이터를 분석한 추천 번호\n\n$numbersText\n\n행운을 빕니다! 🍀",
-            imageUrl = "http://192.168.0.6:8000/kakao-share-image",
+            imageUrl = "https://web-production-43fb4.up.railway.app/kakao-share-image",
             link = Link(
                 webUrl = "https://www.dhlottery.co.kr",
                 mobileWebUrl = "https://m.dhlottery.co.kr"
