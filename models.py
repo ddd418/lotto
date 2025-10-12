@@ -1,7 +1,7 @@
 """
 데이터베이스 모델 정의
 """
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, JSON
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Boolean, Text, ForeignKey, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -47,12 +47,12 @@ class WinningNumber(Base):
     number6 = Column(Integer, nullable=False)
     bonus_number = Column(Integer, nullable=False)  # 보너스 번호
     
-    # 당첨 정보
-    prize_1st = Column(Integer)  # 1등 당첨금
-    prize_2nd = Column(Integer)  # 2등 당첨금
-    prize_3rd = Column(Integer)  # 3등 당첨금
-    prize_4th = Column(Integer)  # 4등 당첨금
-    prize_5th = Column(Integer)  # 5등 당첨금
+    # 당첨 정보 (BigInteger: PostgreSQL에서 큰 숫자 지원)
+    prize_1st = Column(BigInteger)  # 1등 당첨금
+    prize_2nd = Column(BigInteger)  # 2등 당첨금
+    prize_3rd = Column(BigInteger)  # 3등 당첨금
+    prize_4th = Column(BigInteger)  # 4등 당첨금
+    prize_5th = Column(BigInteger)  # 5등 당첨금
     
     winners_1st = Column(Integer)  # 1등 당첨자 수
     winners_2nd = Column(Integer)  # 2등 당첨자 수
@@ -60,7 +60,7 @@ class WinningNumber(Base):
     winners_4th = Column(Integer)  # 4등 당첨자 수
     winners_5th = Column(Integer)  # 5등 당첨자 수
     
-    total_sales = Column(Integer)  # 총 판매액
+    total_sales = Column(BigInteger)  # 총 판매액
     draw_date = Column(DateTime(timezone=True))  # 추첨일
     
     # 메타데이터
