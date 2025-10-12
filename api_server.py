@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 # 데이터베이스 및 인증 관련 import
 from database import get_db, engine, SessionLocal
-from models import Base, User, SavedNumber, WinningCheck, UserSettings, WinningNumber
+from models import Base, User, SavedNumber, WinningCheck, UserSettings, WinningNumber, UserSubscription
 from auth import TokenManager
 from kakao_auth import KakaoAuth
 
@@ -47,6 +47,9 @@ from lotto_checker import (
     get_rank_message,
     estimate_prize_amount
 )
+
+# 구독 관리 라우터 임포트
+from subscription_api import router as subscription_router
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -92,6 +95,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 구독 관리 라우터 등록
+app.include_router(subscription_router)
 
 # -----------------------------
 # Request/Response 모델

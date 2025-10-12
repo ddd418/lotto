@@ -28,6 +28,43 @@ class User(Base):
     # 관계
     saved_numbers = relationship("SavedNumber", back_populates="user", cascade="all, delete-orphan")
     winning_checks = relationship("WinningCheck", back_populates="user", cascade="all, delete-orphan")
+    subscription = relationship("UserSubscription", back_populates="user", uselist=False, cascade="all, delete-orphan")
+
+class UserSubscription(Base):
+    """
+    사용자 구독 정보
+    """
+    __tablename__ = "user_subscriptions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False, index=True)
+    
+    # 체험 관리
+    trial_start_date = Column(DateTime(timezone=True))  # 체험 시작일
+    trial_end_date = Column(DateTime(timezone=True))    # 체험 종료일
+    is_trial_used = Column(Boolean, default=False)      # 체험 사용 여부
+    
+    # 구독 관리
+    subscription_plan = Column(String(20), default="free")  # 'free', 'pro'
+    is_pro_subscriber = Column(Boolean, default=False)      # PRO 구독자 여부
+    subscription_start_date = Column(DateTime(timezone=True))  # 구독 시작일
+    subscription_end_date = Column(DateTime(timezone=True))    # 구독 종료일
+    
+    # Google Play 구매 정보
+    google_play_order_id = Column(String(100), unique=True, index=True)  # 주문 ID
+    google_play_purchase_token = Column(Text)  # 구매 토큰 (검증용)
+    google_play_product_id = Column(String(50))  # 상품 ID (lotto_pro_monthly)
+    
+    # 상태 관리
+    auto_renew = Column(Boolean, default=True)  # 자동 갱신 여부
+    cancelled_at = Column(DateTime(timezone=True))  # 취소 시점
+    
+    # 메타데이터
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # 관계
+    user = relationship("User", back_populates="subscription")
 
 class WinningNumber(Base):
     """

@@ -1,11 +1,14 @@
 package com.lotto.app.di
 
 import android.content.Context
+import com.lotto.app.billing.SubscriptionManager
+import com.lotto.app.data.local.TrialManager
 import com.lotto.app.data.remote.AuthApiService
 import com.lotto.app.data.remote.LottoApiService
 import com.lotto.app.data.remote.UserDataApiService
 import com.lotto.app.data.repository.AuthRepository
 import com.lotto.app.data.repository.LottoRepository
+import com.lotto.app.viewmodel.SubscriptionViewModel
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -36,6 +39,10 @@ object ServiceLocator {
         retrofit.create(UserDataApiService::class.java)
     }
     
+    val subscriptionApiService: SubscriptionApiService by lazy {
+        retrofit.create(SubscriptionApiService::class.java)
+    }
+    
     fun getLottoRepository(): LottoRepository {
         return LottoRepository()
     }
@@ -45,6 +52,21 @@ object ServiceLocator {
             context = context,
             authApiService = authApiService,
             userDataApiService = userDataApiService
+        )
+    }
+    
+    fun getSubscriptionManager(context: Context): SubscriptionManager {
+        return SubscriptionManager(context)
+    }
+    
+    fun getTrialManager(context: Context): TrialManager {
+        return TrialManager(context)
+    }
+    
+    fun getSubscriptionViewModel(context: Context): SubscriptionViewModel {
+        return SubscriptionViewModel(
+            subscriptionManager = getSubscriptionManager(context),
+            trialManager = getTrialManager(context)
         )
     }
 }

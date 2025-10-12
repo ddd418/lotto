@@ -19,6 +19,11 @@
             android:name="com.kakao.sdk.AppKey"
             android:value="6b46608ffd2d4f1d912db2ac6c7e9802" />
         
+        <!-- AdMob App ID -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713" />
+        
         <activity
             android:name=".MainActivity"
             android:exported="true"

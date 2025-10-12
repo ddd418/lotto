@@ -108,6 +108,15 @@ dependencies {
     implementation 'com.kakao.sdk:v2-share:2.19.0'
     implementation 'com.kakao.sdk:v2-template:2.19.0'
     
+    // Google Play Billing (구독 결제)
+    implementation 'com.android.billingclient:billing-ktx:6.1.0'
+    
+    // AdMob (광고)
+    implementation 'com.google.android.gms:play-services-ads:22.6.0'
+    
+    // DataStore (설정 저장)
+    implementation 'androidx.datastore:datastore-preferences:1.0.0'
+    
     // Testing
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

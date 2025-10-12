@@ -1,0 +1,165 @@
+package com.lotto.app.viewmodel
+
+import android.app.Activity
+import android.content.Context
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.lotto.app.billing.SubscriptionManager
+import com.lotto.app.data.local.TrialManager
+import com.lotto.app.data.remote.SubscriptionApiService
+import com.lotto.app.di.ServiceLocator
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+/**
+ * 구독 및 체험 관리 ViewModel (서버 연동)
+ */
+class SubscriptionViewModel(
+    private val subscriptionManager: SubscriptionManager,
+    private val trialManager: TrialManager
+) : ViewModel() {
+    
+    private val subscriptionApi: SubscriptionApiService = ServiceLocator.subscriptionApiService
+    
+    // 구독 상태
+    val isProUser: StateFlow<Boolean> = subscriptionManager.isProUser
+    
+    // 무료 체험 상태
+    private val _trialInfo = MutableStateFlow(TrialInfo())
+    val trialInfo: StateFlow<TrialInfo> = _trialInfo.asStateFlow()
+    
+    // 사용자 접근 권한
+    private val _hasAccess = MutableStateFlow(false)
+    val hasAccess: StateFlow<Boolean> = _hasAccess.asStateFlow()
+    
+    init {
+        initializeSubscription()
+        syncWithServer()
+    }
+    
+    /**
+     * 구독 시스템 초기화
+     */
+    private fun initializeSubscription() {
+        subscriptionManager.initialize()
+        
+        viewModelScope.launch {
+            subscriptionManager.isProUser.collect {
+                updateAccessStatus()
+            }
+        }
+    }
+    
+    /**
+     * 서버와 동기화
+     */
+    private fun syncWithServer() {
+        viewModelScope.launch {
+            try {
+                val response = subscriptionApi.getSubscriptionStatus()
+                if (response.isSuccessful) {
+                    val status = response.body()
+                    status?.let {
+                        _trialInfo.value = TrialInfo(
+                            isStarted = it.trialActive || it.trialDaysRemaining >= 0,
+                            isActive = it.trialActive,
+                            remainingDays = it.trialDaysRemaining.toLong()
+                        )
+                        updateAccessStatus()
+                    }
+                } else {
+                    // 서버 오류 시 로컬 데이터 사용
+                    updateTrialInfo()
+                }
+            } catch (e: Exception) {
+                // 네트워크 오류 시 로컬 데이터 사용
+                updateTrialInfo()
+            }
+        }
+    }
+    
+    /**
+     * 무료 체험 정보 업데이트
+     */
+    fun updateTrialInfo() {
+        _trialInfo.value = TrialInfo(
+            isStarted = trialManager.isTrialStarted(),
+            isActive = trialManager.isTrialActive(),
+            remainingDays = trialManager.getRemainingTrialDays()
+        )
+        updateAccessStatus()
+    }
+    
+    /**
+     * 무료 체험 시작 (서버 연동)
+     */
+    fun startTrial() {
+        viewModelScope.launch {
+            try {
+                // 1. 서버에 체험 시작 요청
+                val response = subscriptionApi.startTrial()
+                if (response.isSuccessful) {
+                    val status = response.body()
+                    status?.let {
+                        _trialInfo.value = TrialInfo(
+                            isStarted = true,
+                            isActive = it.trialActive,
+                            remainingDays = it.trialDaysRemaining.toLong()
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                // 네트워크 오류 시 로컬에서 처리
+                trialManager.startTrial()
+            }
+            
+            // 2. 로컬에도 저장
+            trialManager.startTrial()
+            updateTrialInfo()
+        }
+    }
+    
+    /**
+     * 구독 결제 시작
+     */
+    fun startSubscription(activity: Activity) {
+        subscriptionManager.launchSubscriptionFlow(activity)
+    }
+    
+    /**
+     * 구독 상태 새로고침
+     */
+    fun refreshSubscriptionStatus() {
+        subscriptionManager.checkSubscriptionStatus()
+    }
+    
+    /**
+     * 접근 권한 업데이트
+     */
+    private fun updateAccessStatus() {
+        _hasAccess.value = isProUser.value || trialInfo.value.isActive
+    }
+    
+    /**
+     * 오늘 사용 가능 여부 (광고 시청 옵션 포함)
+     */
+    fun canUseToday(): Boolean {
+        return hasAccess.value
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        subscriptionManager.destroy()
+    }
+}
+
+/**
+ * 무료 체험 정보
+ */
+data class TrialInfo(
+    val isStarted: Boolean = false,
+    val isActive: Boolean = false,
+    val remainingDays: Long = 30
+)
