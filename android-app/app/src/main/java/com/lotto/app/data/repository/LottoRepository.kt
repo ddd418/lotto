@@ -30,7 +30,7 @@ class LottoRepository {
     }
     
     /**
-     * 로또 번호 추천
+     * 번호 추천
      */
     suspend fun recommendNumbers(nSets: Int = 5, mode: String = "ai"): Result<RecommendResponse> = withContext(Dispatchers.IO) {
         try {

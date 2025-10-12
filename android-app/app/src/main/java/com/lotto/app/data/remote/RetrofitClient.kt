@@ -14,11 +14,11 @@ import java.util.concurrent.TimeUnit
 object RetrofitClient {
     
     // ⚠️ 여기를 서버 주소로 변경하세요!
+    // Railway 프로덕션 서버
+    private const val BASE_URL = "https://web-production-43fb4.up.railway.app/"
     // 로컬 테스트:
     // - 에뮬레이터: "http://10.0.2.2:8000/"
-    // - 실제 기기: "http://your-pc-ip:8000/"
-    // 프로덕션: "http://your-server-ip:8000/"
-    private const val BASE_URL = "http://192.168.0.6:8000/"
+    // - 실제 기기: "http://192.168.0.6:8000/"
     
     private var applicationContext: Context? = null
     

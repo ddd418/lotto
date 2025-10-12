@@ -65,7 +65,7 @@ class LottoViewModel : ViewModel() {
     }
     
     /**
-     * 로또 번호 추천
+     * 로또연구소
      */
     fun recommendNumbers(nSets: Int = 5) {
         viewModelScope.launch {

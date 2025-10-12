@@ -1,17 +1,17 @@
 <resources>
-    <string name="app_name">로또 번호 추천</string>
+    <string name="app_name">로또연구소</string>
     
     <!-- 메인 화면 -->
-    <string name="main_title">로또 번호 추천</string>
+    <string name="main_title">로또연구소</string>
     <string name="server_connected">서버 연결됨</string>
     <string name="server_disconnected">서버 연결 끊김</string>
     <string name="latest_draw">현재 기준 회차</string>
-    <string name="recommend_button">로또 번호 추천받기</string>
+    <string name="recommend_button">번호 추천받기</string>
     <string name="stats_button">번호 출현 통계 보기</string>
     
     <!-- 추천 화면 -->
-    <string name="recommend_title">로또 번호 추천</string>
-    <string name="loading_recommend">AI가 번호를 분석하는 중...</string>
+    <string name="recommend_title">로또연구소</string>
+    <string name="loading_recommend">번호를 분석하는 중...</string>
     <string name="share_numbers">추천 번호 공유하기</string>
     <string name="retry">다시 시도</string>
     

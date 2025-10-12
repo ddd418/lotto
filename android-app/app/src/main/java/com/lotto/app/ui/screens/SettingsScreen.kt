@@ -274,7 +274,7 @@ fun SettingsScreen(
                                     
                                     // 앱 이름
                                     Text(
-                                        text = "로또 번호 추천",
+                                        text = "로또연구소",
                                         style = MaterialTheme.typography.headlineSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.primary

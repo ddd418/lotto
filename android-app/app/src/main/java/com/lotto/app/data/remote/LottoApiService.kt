@@ -19,7 +19,7 @@ interface LottoApiService {
     suspend fun getHealth(): Response<HealthResponse>
     
     /**
-     * 로또 번호 추천
+     * 번호 추천
      */
     @POST("api/recommend")
     suspend fun recommendNumbers(

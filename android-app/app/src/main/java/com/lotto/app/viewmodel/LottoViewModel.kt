@@ -70,7 +70,7 @@ class LottoViewModel : ViewModel() {
     }
     
     /**
-     * 로또 번호 추천
+     * 번호 추천
      */
     fun recommendNumbers(nSets: Int = 5, mode: String = "ai") {
         viewModelScope.launch {

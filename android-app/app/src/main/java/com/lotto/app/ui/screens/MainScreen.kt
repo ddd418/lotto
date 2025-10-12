@@ -54,14 +54,14 @@ fun MainScreen(
         ) {
             // 헤더
             NotionSectionHeader(
-                title = "로또 번호 추천",
+                title = "로또연구소",
                 subtitle = "AI 기반 데이터 분석으로\n최적의 번호를 찾아보세요",
-                icon = "🎯"
+                icon = "🔬"
             )
             
-            // 서버 상태 및 최신 데이터
+            // 최신 데이터 (서버 상태 카드 제거)
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                NotionServerStatusCard(isConnected = isServerConnected)
+                // NotionServerStatusCard(isConnected = isServerConnected) // 서버 상태 카드 제거
                 
                 when (val currentState = latestDrawState) {
                     is UiState.Success -> {

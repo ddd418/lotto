@@ -57,7 +57,7 @@ fun RecommendScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "로또 번호 추천",
+                        text = "로또연구소",
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -372,7 +372,7 @@ fun RecommendScreen(
 private fun buildShareText(sets: List<com.lotto.app.data.model.LottoSet>, lastDraw: Int): String {
     val builder = StringBuilder()
     
-    builder.append("🎰 AI 로또 번호 추천\n")
+    builder.append("🔬 로또연구소 번호 추천\n")
     builder.append("━━━━━━━━━━━━━━━━\n")
     builder.append("기준: ${lastDraw}회차까지\n\n")
     
@@ -384,7 +384,7 @@ private fun buildShareText(sets: List<com.lotto.app.data.model.LottoSet>, lastDr
     
     builder.append("\n━━━━━━━━━━━━━━━━\n")
     builder.append("💡 과거 출현 빈도 기반 AI 추천\n")
-    builder.append("📱 로또 번호 추천 앱\n")
+    builder.append("📱 로또연구소\n")
     
     return builder.toString()
 }
@@ -405,7 +405,7 @@ private fun shareToKakao(
     // 카카오톡 피드 템플릿 생성
     val feedTemplate = FeedTemplate(
         content = Content(
-            title = "🎰 AI 로또 번호 추천 🤖",
+            title = "🔬 로또연구소",
             description = "AI가 과거 ${lastDraw}회차 데이터를 분석한 추천 번호\n\n$numbersText\n\n행운을 빕니다! 🍀",
             imageUrl = "https://web-production-43fb4.up.railway.app/kakao-share-image",
             link = Link(
@@ -415,7 +415,7 @@ private fun shareToKakao(
         ),
         buttons = listOf(
             Button(
-                title = "로또 구매하러 가기",
+                title = "로또번호 확인하기",
                 link = Link(
                     webUrl = "https://www.dhlottery.co.kr",
                     mobileWebUrl = "https://m.dhlottery.co.kr"

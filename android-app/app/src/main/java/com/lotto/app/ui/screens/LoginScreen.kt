@@ -66,7 +66,7 @@ fun LoginScreen(
                 )
                 
                 Text(
-                    text = "로또 번호 추천",
+                    text = "로또연구소",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = NotionColors.TextPrimary

@@ -42,7 +42,7 @@ fun RecommendScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "로또 번호 추천",
+                        text = "로또연구소",
                         fontWeight = FontWeight.Bold
                     )
                 },

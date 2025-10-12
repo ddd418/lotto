@@ -38,7 +38,7 @@ fun MainScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "🎰 로또 번호 추천",
+                        text = "🔬 로또연구소",
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -100,7 +100,7 @@ fun MainScreen(
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "로또 번호 추천받기",
+                    text = "번호 추천받기",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
