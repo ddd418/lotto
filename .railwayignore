@@ -1,0 +1,26 @@
+# Android app 제외
+android-app/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 테스트 데이터
+lotto_draws.json
+lotto_stats.json
+
+# Git
+.git/
+.gitignore

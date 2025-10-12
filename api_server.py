@@ -1708,6 +1708,7 @@ def setup_scheduler():
 # -----------------------------
 if __name__ == "__main__":
     import uvicorn
+    import os
     
     # DB에서 데이터를 읽으므로 통계 파일 생성 불필요
     # (모든 데이터는 DB에서 실시간 조회)
@@ -1715,14 +1716,17 @@ if __name__ == "__main__":
     # 스케줄러 정리를 위한 atexit 핸들러 등록
     atexit.register(lambda: scheduler.shutdown() if scheduler.running else None)
     
+    # 환경변수에서 포트 읽기 (Railway 등의 클라우드 플랫폼 지원)
+    port = int(os.getenv("PORT", 8000))
+    
     print("🚀 로또 API 서버 시작...")
-    print("📖 API 문서: http://localhost:8000/docs")
-    print("🏥 헬스체크: http://localhost:8000/api/health")
-    print("🔄 수동 업데이트: http://localhost:8000/api/update")
+    print(f"📖 API 문서: http://localhost:{port}/docs")
+    print(f"🏥 헬스체크: http://localhost:{port}/api/health")
+    print(f"🔄 수동 업데이트: http://localhost:{port}/api/update")
     print("📅 자동 업데이트: 매주 토요일 오후 9시\n")
     
     try:
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+        uvicorn.run(app, host="0.0.0.0", port=port)
     except KeyboardInterrupt:
         print("\n🛑 서버 종료 중...")
         if scheduler.running:

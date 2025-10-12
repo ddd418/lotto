@@ -52,7 +52,8 @@ venv.bak/
 *.db
 *.sqlite
 *.sqlite3
-lotto.db
+# Railway 배포를 위해 lotto.db는 포함 (주석 처리)
+# lotto.db
 
 # IDE
 .idea/
