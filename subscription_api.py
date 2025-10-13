@@ -107,7 +107,13 @@ async def start_trial(
     - 사용자당 1회만 가능
     - 30일 무료 체험 제공
     """
+    print(f"🎯 무료 체험 시작 요청: user_id={user_id}")
+    
     subscription = get_or_create_subscription(db, user_id)
+    
+    print(f"📊 현재 구독 상태:")
+    print(f"   is_trial_used: {subscription.is_trial_used}")
+    print(f"   is_pro_subscriber: {subscription.is_pro_subscriber}")
     
     # 이미 체험을 사용한 경우
     if subscription.is_trial_used:
@@ -129,6 +135,11 @@ async def start_trial(
     subscription.trial_end_date = now + timedelta(days=30)
     subscription.is_trial_used = True
     subscription.updated_at = now
+    
+    print(f"✅ 무료 체험 시작:")
+    print(f"   trial_start_date: {subscription.trial_start_date}")
+    print(f"   trial_end_date: {subscription.trial_end_date}")
+    print(f"   is_trial_used: {subscription.is_trial_used}")
     
     db.commit()
     db.refresh(subscription)

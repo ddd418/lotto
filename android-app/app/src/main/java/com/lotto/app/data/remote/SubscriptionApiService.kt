@@ -1,6 +1,9 @@
 package com.lotto.app.data.remote
 
-import com.lotto.app.data.model.*
+import com.lotto.app.data.model.SubscriptionStatusResponse
+import com.lotto.app.data.model.VerifyPurchaseRequest
+import com.lotto.app.data.model.VerifyPurchaseResponse
+import com.lotto.app.data.model.CancelSubscriptionResponse
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -35,31 +38,3 @@ interface SubscriptionApiService {
     @POST("api/subscription/cancel")
     suspend fun cancelSubscription(): Response<CancelSubscriptionResponse>
 }
-
-/**
- * 구매 검증 요청
- */
-data class VerifyPurchaseRequest(
-    val purchase_token: String,
-    val order_id: String,
-    val product_id: String
-)
-
-/**
- * 구매 검증 응답
- */
-data class VerifyPurchaseResponse(
-    val verified: Boolean,
-    val is_pro: Boolean,
-    val subscription_end_date: String?,
-    val message: String
-)
-
-/**
- * 구독 취소 응답
- */
-data class CancelSubscriptionResponse(
-    val success: Boolean,
-    val message: String,
-    val subscription_end_date: String?
-)

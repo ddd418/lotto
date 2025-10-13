@@ -3,8 +3,8 @@ package com.lotto.app.billing
 import android.app.Activity
 import android.content.Context
 import com.android.billingclient.api.*
+import com.lotto.app.data.model.VerifyPurchaseRequest
 import com.lotto.app.data.remote.SubscriptionApiService
-import com.lotto.app.data.remote.VerifyPurchaseRequest
 import com.lotto.app.di.ServiceLocator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -144,9 +144,9 @@ class SubscriptionManager(
         scope.launch {
             try {
                 val request = VerifyPurchaseRequest(
-                    purchase_token = purchase.purchaseToken,
-                    order_id = purchase.orderId ?: "",
-                    product_id = SUBSCRIPTION_PRODUCT_ID
+                    purchaseToken = purchase.purchaseToken,
+                    orderId = purchase.orderId ?: "",
+                    productId = SUBSCRIPTION_PRODUCT_ID
                 )
                 
                 val response = subscriptionApi.verifyPurchase(request)

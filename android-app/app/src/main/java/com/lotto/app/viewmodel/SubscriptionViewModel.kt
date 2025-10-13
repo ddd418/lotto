@@ -34,6 +34,10 @@ class SubscriptionViewModel(
     private val _hasAccess = MutableStateFlow(false)
     val hasAccess: StateFlow<Boolean> = _hasAccess.asStateFlow()
     
+    // 서버 구독 상태
+    private val _subscriptionStatus = MutableStateFlow(SubscriptionStatus())
+    val subscriptionStatus: StateFlow<SubscriptionStatus> = _subscriptionStatus.asStateFlow()
+    
     init {
         initializeSubscription()
         syncWithServer()
@@ -53,9 +57,9 @@ class SubscriptionViewModel(
     }
     
     /**
-     * 서버와 동기화
+     * 서버와 동기화 (public - 로그인 시 호출)
      */
-    private fun syncWithServer() {
+    fun syncWithServer() {
         viewModelScope.launch {
             try {
                 val response = subscriptionApi.getSubscriptionStatus()
@@ -136,6 +140,53 @@ class SubscriptionViewModel(
     }
     
     /**
+     * 서버에서 구독 상태 조회
+     */
+    fun refreshStatus() {
+        viewModelScope.launch {
+            try {
+                val response = subscriptionApi.getSubscriptionStatus()
+                if (response.isSuccessful) {
+                    response.body()?.let { status ->
+                        _subscriptionStatus.value = SubscriptionStatus(
+                            isPro = status.isPro,
+                            trialActive = status.trialActive,
+                            trialDaysRemaining = status.trialDaysRemaining,
+                            subscriptionPlan = status.subscriptionPlan,
+                            hasAccess = status.hasAccess,
+                            trialStartDate = status.trialStartDate,
+                            trialEndDate = status.trialEndDate,
+                            subscriptionEndDate = status.subscriptionEndDate,
+                            autoRenew = status.autoRenew,
+                            isTrialUsed = status.trialActive || status.trialDaysRemaining >= 0
+                        )
+                        _hasAccess.value = status.hasAccess
+                    }
+                }
+            } catch (e: Exception) {
+                // 네트워크 오류 시 로컬 상태 사용
+            }
+        }
+    }
+    
+    /**
+     * 구독 취소
+     */
+    fun cancelSubscription() {
+        viewModelScope.launch {
+            try {
+                val response = subscriptionApi.cancelSubscription()
+                if (response.isSuccessful) {
+                    // 상태 새로고침
+                    refreshStatus()
+                }
+            } catch (e: Exception) {
+                // 오류 처리
+            }
+        }
+    }
+    
+    /**
      * 접근 권한 업데이트
      */
     private fun updateAccessStatus() {
@@ -162,4 +213,20 @@ data class TrialInfo(
     val isStarted: Boolean = false,
     val isActive: Boolean = false,
     val remainingDays: Long = 30
+)
+
+/**
+ * 서버 구독 상태
+ */
+data class SubscriptionStatus(
+    val isPro: Boolean = false,
+    val trialActive: Boolean = false,
+    val trialDaysRemaining: Int = 0,
+    val subscriptionPlan: String = "free",
+    val hasAccess: Boolean = false,
+    val trialStartDate: String? = null,
+    val trialEndDate: String? = null,
+    val subscriptionEndDate: String? = null,
+    val autoRenew: Boolean = false,
+    val isTrialUsed: Boolean = false
 )

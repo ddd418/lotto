@@ -33,3 +33,48 @@ data class SubscriptionStatusResponse(
     @SerializedName("auto_renew")
     val autoRenew: Boolean
 )
+
+/**
+ * Google Play 구매 검증 요청
+ */
+data class VerifyPurchaseRequest(
+    @SerializedName("purchase_token")
+    val purchaseToken: String,
+    
+    @SerializedName("order_id")
+    val orderId: String,
+    
+    @SerializedName("product_id")
+    val productId: String
+)
+
+/**
+ * Google Play 구매 검증 응답
+ */
+data class VerifyPurchaseResponse(
+    @SerializedName("verified")
+    val verified: Boolean,
+    
+    @SerializedName("is_pro")
+    val isPro: Boolean,
+    
+    @SerializedName("subscription_end_date")
+    val subscriptionEndDate: String?,
+    
+    @SerializedName("message")
+    val message: String
+)
+
+/**
+ * 구독 취소 응답
+ */
+data class CancelSubscriptionResponse(
+    @SerializedName("success")
+    val success: Boolean,
+    
+    @SerializedName("message")
+    val message: String,
+    
+    @SerializedName("subscription_end_date")
+    val subscriptionEndDate: String?
+)

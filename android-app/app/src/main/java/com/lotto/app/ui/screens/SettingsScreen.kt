@@ -32,6 +32,7 @@ fun SettingsScreen(
     authViewModel: com.lotto.app.viewmodel.AuthViewModel,
     onNavigateBack: () -> Unit,
     onNavigateToLogin: () -> Unit,
+    onNavigateToSubscription: () -> Unit = {},
     viewModel: UserSettingsViewModel = viewModel()
 ) {
     val settings by viewModel.settings.collectAsState()
@@ -184,6 +185,29 @@ fun SettingsScreen(
                                         icon = Icons.Default.Person,
                                         onClick = {}
                                     )
+                                    
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    
+                                    // 구독 관리 버튼
+                                    OutlinedButton(
+                                        onClick = onNavigateToSubscription,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(56.dp),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            "구독 관리",
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                     
                                     Spacer(modifier = Modifier.height(8.dp))
                                     

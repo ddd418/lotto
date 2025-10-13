@@ -21,6 +21,7 @@ import com.lotto.app.R
 import com.lotto.app.ui.theme.NotionColors
 import com.lotto.app.ui.components.*
 import com.lotto.app.viewmodel.AuthViewModel
+import com.lotto.app.viewmodel.SubscriptionViewModel
 import com.lotto.app.viewmodel.UiState
 
 /**
@@ -28,16 +29,20 @@ import com.lotto.app.viewmodel.UiState
  */
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit,
-    viewModel: AuthViewModel = viewModel()
+    onLoginSuccess: (Boolean) -> Unit,  // Boolean: 신규 가입자 여부
+    viewModel: AuthViewModel = viewModel(),
+    subscriptionViewModel: SubscriptionViewModel? = null
 ) {
     val context = LocalContext.current
     val loginState by viewModel.loginState.collectAsStateWithLifecycle()
+    val isNewUser by viewModel.isNewUser.collectAsStateWithLifecycle()
     
-    // 로그인 성공 시 메인 화면으로 이동
+    // 로그인 성공 시 구독 상태 서버와 동기화 후 메인 화면으로 이동
     LaunchedEffect(loginState) {
         if (loginState is UiState.Success) {
-            onLoginSuccess()
+            // 구독 상태를 서버와 동기화 (ViewModel이 제공된 경우에만)
+            subscriptionViewModel?.syncWithServer()
+            onLoginSuccess(isNewUser)
         }
     }
     
@@ -59,9 +64,9 @@ fun LoginScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // 로고 (이모지 사용)
+                // 로고 (연구소 이모지)
                 Text(
-                    text = "🎯",
+                    text = "🧪",
                     fontSize = 64.sp
                 )
                 
@@ -184,36 +189,3 @@ fun LoginScreen(
     }
 }
 
-/**
- * 기능 소개 아이템
- */
-@Composable
-private fun FeatureItem(
-    icon: String,
-    title: String,
-    description: String
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            text = icon,
-            fontSize = 20.sp
-        )
-        
-        Column {
-            Text(
-                text = title,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = NotionColors.TextPrimary
-            )
-            Text(
-                text = description,
-                fontSize = 12.sp,
-                color = NotionColors.TextSecondary
-            )
-        }
-    }
-}

@@ -24,6 +24,7 @@ import com.lotto.app.ui.screens.AnalysisDashboardScreen
 import com.lotto.app.ui.screens.CheckWinningScreen
 import com.lotto.app.ui.screens.LoginScreen
 import com.lotto.app.ui.screens.MainScreen
+import com.lotto.app.ui.screens.PlanSelectionScreen
 import com.lotto.app.ui.screens.RecommendScreen
 import com.lotto.app.ui.screens.SavedNumbersScreen
 import com.lotto.app.ui.screens.SettingsScreen
@@ -34,6 +35,8 @@ import com.lotto.app.viewmodel.AuthViewModel
 import com.lotto.app.viewmodel.AuthViewModelFactory
 import com.lotto.app.viewmodel.LottoViewModel
 import com.lotto.app.viewmodel.SavedNumberViewModel
+import com.lotto.app.viewmodel.SubscriptionViewModel
+import com.lotto.app.viewmodel.SubscriptionViewModelFactory
 import com.lotto.app.viewmodel.ThemeViewModel
 
 /**
@@ -41,6 +44,7 @@ import com.lotto.app.viewmodel.ThemeViewModel
  */
 sealed class Screen(val route: String) {
     object Login : Screen("login")
+    object PlanSelection : Screen("plan_selection")
     object Main : Screen("main")
     object Recommend : Screen("recommend")
     object Stats : Screen("stats")
@@ -49,6 +53,9 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
     object Analysis : Screen("analysis")
     object VirtualDraw : Screen("virtual_draw")
+    object Onboarding : Screen("onboarding")
+    object Subscription : Screen("subscription")
+    object SubscriptionStatus : Screen("subscription_status")
 }
 
 /**
@@ -111,6 +118,11 @@ fun LottoApp(
         factory = AuthViewModelFactory(context)
     )
     
+    // SubscriptionViewModel 생성 (Factory 사용)
+    val subscriptionViewModel: SubscriptionViewModel = viewModel(
+        factory = SubscriptionViewModelFactory(context)
+    )
+    
     val isLoggedIn by authViewModel.isLoggedIn.collectAsStateWithLifecycle()
     
     // 로그인 상태에 따라 시작 화면 결정
@@ -144,13 +156,42 @@ fun LottoApp(
         composable(Screen.Login.route) {
             LoginScreen(
                 viewModel = authViewModel,
-                onLoginSuccess = {
-                    navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                subscriptionViewModel = subscriptionViewModel,
+                onLoginSuccess = { isNewUser ->
+                    if (isNewUser) {
+                        // 신규 가입자는 플랜 선택 화면으로
+                        navController.navigate(Screen.PlanSelection.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
+                    } else {
+                        // 기존 사용자는 메인 화면으로
+                        navController.navigate(Screen.Main.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
                     }
                 }
             )
         }
+        
+        // 플랜 선택 화면 (첫 가입자용)
+        composable(Screen.PlanSelection.route) {
+            PlanSelectionScreen(
+                onFreePlanSelected = {
+                    // 무료 플랜 선택 - 트라이얼 시작
+                    subscriptionViewModel.startTrial()
+                    navController.navigate(Screen.Main.route) {
+                        popUpTo(Screen.PlanSelection.route) { inclusive = true }
+                    }
+                },
+                onProPlanSelected = {
+                    // 프로 플랜 선택 - 구독 화면으로 이동
+                    navController.navigate(Screen.Subscription.route) {
+                        popUpTo(Screen.PlanSelection.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+        
         // 메인 화면
         composable(Screen.Main.route) {
             MainScreen(
@@ -263,6 +304,9 @@ fun LottoApp(
                 },
                 onNavigateToLogin = {
                     navController.navigate(Screen.Login.route)
+                },
+                onNavigateToSubscription = {
+                    navController.navigate(Screen.SubscriptionStatus.route)
                 }
             )
         }
@@ -281,6 +325,20 @@ fun LottoApp(
             VirtualDrawScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                }
+            )
+        }
+        
+        // 구독 상태 화면
+        composable(Screen.SubscriptionStatus.route) {
+            com.lotto.app.ui.screens.SubscriptionStatusScreen(
+                viewModel = subscriptionViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToSubscription = {
+                    // 구독 화면으로 이동 (있다면)
+                    // navController.navigate(Screen.Subscription.route)
                 }
             )
         }

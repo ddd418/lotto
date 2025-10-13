@@ -21,7 +21,10 @@ data class TokenResponse(
     val tokenType: String = "bearer",
     
     @SerializedName("expires_in")
-    val expiresIn: Int
+    val expiresIn: Int,
+    
+    @SerializedName("is_new_user")
+    val isNewUser: Boolean = false  // 신규 가입자 여부
 )
 
 data class UserProfile(

@@ -5,6 +5,7 @@ import com.lotto.app.billing.SubscriptionManager
 import com.lotto.app.data.local.TrialManager
 import com.lotto.app.data.remote.AuthApiService
 import com.lotto.app.data.remote.LottoApiService
+import com.lotto.app.data.remote.SubscriptionApiService
 import com.lotto.app.data.remote.UserDataApiService
 import com.lotto.app.data.repository.AuthRepository
 import com.lotto.app.data.repository.LottoRepository

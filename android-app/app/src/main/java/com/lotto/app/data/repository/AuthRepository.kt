@@ -38,7 +38,7 @@ class AuthRepository(
     /**
      * 카카오 로그인 처리
      */
-    suspend fun loginWithKakao(): Result<UserProfile> = withContext(Dispatchers.IO) {
+    suspend fun loginWithKakao(): Result<Pair<UserProfile, Boolean>> = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "🔑 카카오 로그인 시작")
             
@@ -53,7 +53,7 @@ class AuthRepository(
             
             if (response.isSuccessful) {
                 val tokenResponse = response.body()!!
-                Log.d(TAG, "✅ 로그인 성공 - 토큰 저장")
+                Log.d(TAG, "✅ 로그인 성공 - 토큰 저장 (신규 사용자: ${tokenResponse.isNewUser})")
                 
                 // 3. 토큰 저장
                 saveTokens(tokenResponse.accessToken, tokenResponse.refreshToken)
@@ -68,7 +68,7 @@ class AuthRepository(
                     Log.d(TAG, "   id: ${profile.id}")
                     Log.d(TAG, "   nickname: ${profile.nickname}")
                     Log.d(TAG, "   email: ${profile.email}")
-                    Result.success(profile)
+                    Result.success(Pair(profile, tokenResponse.isNewUser))
                 } else {
                     Log.e(TAG, "❌ 사용자 정보 조회 실패")
                     Result.failure(userProfile.exceptionOrNull() ?: Exception("사용자 정보 조회 실패"))

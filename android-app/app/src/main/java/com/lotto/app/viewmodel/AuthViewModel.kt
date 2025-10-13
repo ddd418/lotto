@@ -34,6 +34,10 @@ class AuthViewModel(
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
     
+    // 신규 가입자 여부
+    private val _isNewUser = MutableStateFlow(false)
+    val isNewUser: StateFlow<Boolean> = _isNewUser.asStateFlow()
+    
     init {
         checkLoginStatus()
     }
@@ -62,14 +66,16 @@ class AuthViewModel(
                 val result = authRepository.loginWithKakao()
                 
                 if (result.isSuccess) {
-                    val userProfile = result.getOrThrow()
+                    val (userProfile, isNewUser) = result.getOrThrow()
                     Log.d(TAG, "✅ 카카오 로그인 성공:")
                     Log.d(TAG, "   id: ${userProfile.id}")
                     Log.d(TAG, "   nickname: ${userProfile.nickname}")
                     Log.d(TAG, "   email: ${userProfile.email}")
+                    Log.d(TAG, "   신규 가입자: $isNewUser")
                     
                     _currentUser.value = userProfile
                     _isLoggedIn.value = true
+                    _isNewUser.value = isNewUser
                     _loginState.value = UiState.Success(userProfile)
                     
                     Log.d(TAG, "✅ ViewModel 상태 업데이트 완료")
