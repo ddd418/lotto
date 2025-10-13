@@ -178,6 +178,7 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int
+    is_new_user: bool = False  # 신규 가입자 여부
 
 class UserProfile(BaseModel):
     id: int
@@ -378,9 +379,11 @@ async def kakao_login(
         
         # 데이터베이스에서 사용자 찾기 또는 생성
         user = db.query(User).filter(User.kakao_id == user_data["kakao_id"]).first()
+        is_new_user = False
         
         if not user:
             # 새 사용자 생성
+            is_new_user = True
             print(f"🆕 새 사용자 생성 중...")
             print(f"   kakao_id: {user_data['kakao_id']}")
             print(f"   email: {user_data['email']}")
@@ -422,10 +425,15 @@ async def kakao_login(
         access_token = TokenManager.create_access_token(data={"sub": str(user.id)})
         refresh_token = TokenManager.create_refresh_token(data={"sub": str(user.id)})
         
+        print(f"📤 로그인 응답 전송:")
+        print(f"   user_id: {user.id}")
+        print(f"   is_new_user: {is_new_user}")
+        
         return TokenResponse(
             access_token=access_token,
             refresh_token=refresh_token,
-            expires_in=30 * 60  # 30분
+            expires_in=30 * 60,  # 30분
+            is_new_user=is_new_user  # 신규 가입자 여부 전달
         )
         
     except Exception as e:
