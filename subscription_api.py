@@ -107,7 +107,9 @@ async def start_trial(
     - 사용자당 1회만 가능
     - 30일 무료 체험 제공
     """
-    print(f"🎯 무료 체험 시작 요청: user_id={user_id}")
+    print(f"🎯 무료 체험 시작 요청 받음!")
+    print(f"   user_id: {user_id}")
+    print(f"   request: {request}")
     
     subscription = get_or_create_subscription(db, user_id)
     
@@ -173,6 +175,9 @@ async def get_subscription_status(
     - 체험 기간 남은 일수
     - 접근 권한 여부
     """
+    print(f"📊 구독 상태 조회 요청 받음!")
+    print(f"   user_id: {user_id}")
+    
     subscription = get_or_create_subscription(db, user_id)
     
     # 구독 만료 확인

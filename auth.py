@@ -113,6 +113,13 @@ async def get_current_user(
     Raises:
         HTTPException: 토큰이 유효하지 않을 경우
     """
-    token = credentials.credentials
-    user_id = TokenManager.get_user_id_from_token(token)
-    return user_id
+    try:
+        print(f"🔐 get_current_user 호출됨")
+        token = credentials.credentials
+        print(f"🎫 토큰 추출 성공: {token[:20]}...")
+        user_id = TokenManager.get_user_id_from_token(token)
+        print(f"✅ 사용자 ID 추출 성공: {user_id}")
+        return user_id
+    except Exception as e:
+        print(f"❌ 인증 실패: {type(e).__name__}: {str(e)}")
+        raise
