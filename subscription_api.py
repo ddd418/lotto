@@ -50,11 +50,24 @@ class VerifyPurchaseResponse(BaseModel):
 
 def get_or_create_subscription(db: Session, user_id: int) -> UserSubscription:
     """구독 정보 조회 또는 생성"""
+    # 사용자 존재 여부 확인
+    from models import User
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        print(f"❌ 사용자 없음: user_id={user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"사용자를 찾을 수 없습니다 (user_id: {user_id})"
+        )
+    
+    print(f"✅ 사용자 확인: user_id={user_id}, nickname={user.nickname}")
+    
     subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == user_id
     ).first()
     
     if not subscription:
+        print(f"📝 새 구독 정보 생성: user_id={user_id}")
         subscription = UserSubscription(
             user_id=user_id,
             subscription_plan="free",
@@ -64,6 +77,9 @@ def get_or_create_subscription(db: Session, user_id: int) -> UserSubscription:
         db.add(subscription)
         db.commit()
         db.refresh(subscription)
+        print(f"✅ 구독 정보 생성 완료: subscription_id={subscription.id}")
+    else:
+        print(f"✅ 기존 구독 정보 사용: subscription_id={subscription.id}")
     
     return subscription
 
