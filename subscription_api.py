@@ -173,7 +173,7 @@ async def get_subscription_status(
     - 체험 기간 남은 일수
     - 접근 권한 여부
     """
-    subscription = get_or_create_subscription(db, current_user)
+    subscription = get_or_create_subscription(db, user_id)
     
     # 구독 만료 확인
     if subscription.is_pro_subscriber:
@@ -213,7 +213,7 @@ async def verify_purchase(
     - Google Play에서 구매한 구독을 검증
     - 검증 성공 시 PRO 구독 활성화
     """
-    subscription = get_or_create_subscription(db, current_user)
+    subscription = get_or_create_subscription(db, user_id)
     
     # TODO: 실제 Google Play API로 구매 검증
     # 현재는 간단히 구매 토큰 존재 여부만 확인
@@ -228,7 +228,7 @@ async def verify_purchase(
     # 이미 같은 주문 ID가 등록되어 있는지 확인
     existing = db.query(UserSubscription).filter(
         UserSubscription.google_play_order_id == request.order_id,
-        UserSubscription.user_id != current_user.id
+        UserSubscription.user_id != user_id
     ).first()
     
     if existing:
@@ -271,7 +271,7 @@ async def cancel_subscription(
     - 자동 갱신 비활성화
     - 현재 구독 기간까지는 PRO 사용 가능
     """
-    subscription = get_or_create_subscription(db, current_user)
+    subscription = get_or_create_subscription(db, user_id)
     
     if not subscription.is_pro_subscriber:
         raise HTTPException(
