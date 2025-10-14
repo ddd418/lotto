@@ -124,7 +124,6 @@ async def start_trial(
     """
     print(f"🎯 무료 체험 시작 요청 받음!")
     print(f"   user_id: {user_id}")
-    print(f"   request: {request}")
     
     subscription = get_or_create_subscription(db, user_id)
     
