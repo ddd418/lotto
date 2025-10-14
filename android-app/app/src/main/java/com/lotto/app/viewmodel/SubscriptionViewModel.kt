@@ -49,6 +49,7 @@ class SubscriptionViewModel(
     init {
         initializeSubscription()
         syncWithServer()
+        refreshStatus()  // 서버에서 최신 구독 상태 가져오기
     }
     
     /**
@@ -206,6 +207,9 @@ class SubscriptionViewModel(
                             isTrialUsed = status.trialActive || status.trialDaysRemaining >= 0
                         )
                         _hasAccess.value = status.hasAccess
+                        
+                        // 체험 종료 임박 알림 체크
+                        checkTrialWarning(status.trialActive, status.trialDaysRemaining)
                     }
                 }
             } catch (e: Exception) {
@@ -266,7 +270,7 @@ data class TrialInfo(
 data class SubscriptionStatus(
     val isPro: Boolean = false,
     val trialActive: Boolean = false,
-    val trialDaysRemaining: Int = 0,
+    val trialDaysRemaining: Int = -1,  // -1 = 아직 로드되지 않음
     val subscriptionPlan: String = "free",
     val hasAccess: Boolean = false,
     val trialStartDate: String? = null,

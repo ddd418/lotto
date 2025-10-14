@@ -1,6 +1,7 @@
 package com.lotto.app.ui.screens
 
 import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -35,6 +36,23 @@ fun SubscriptionScreen(
     val context = LocalContext.current
     val isProUser by viewModel.isProUser.collectAsStateWithLifecycle()
     val trialInfo by viewModel.trialInfo.collectAsStateWithLifecycle()
+    val subscriptionStatus by viewModel.subscriptionStatus.collectAsStateWithLifecycle()
+    
+    // 화면 진입 시 구독 상태 새로고침
+    LaunchedEffect(Unit) {
+        viewModel.refreshStatus()
+    }
+    
+    // 디버깅: 구독 상태 로그
+    LaunchedEffect(subscriptionStatus) {
+        android.util.Log.d("SubscriptionScreen", """
+            📊 구독 상태:
+            - trialActive: ${subscriptionStatus.trialActive}
+            - trialDaysRemaining: ${subscriptionStatus.trialDaysRemaining}
+            - isPro: ${subscriptionStatus.isPro}
+            - subscriptionPlan: ${subscriptionStatus.subscriptionPlan}
+        """.trimIndent())
+    }
     
     // 이미 구독 중이면 자동으로 돌아가기
     LaunchedEffect(isProUser) {
@@ -43,13 +61,31 @@ fun SubscriptionScreen(
         }
     }
     
+    // 체험 만료 여부 체크 (실제로 0일 이하일 때만)
+    // trialDaysRemaining == -1 은 아직 로드되지 않은 상태
+    val isTrialExpired = subscriptionStatus.trialDaysRemaining != -1 && // 데이터 로드됨 (초기값 아님)
+                         subscriptionStatus.trialDaysRemaining <= 0 &&  // 실제 만료 (0 이하, 음수 포함)
+                         !subscriptionStatus.trialActive && 
+                         !subscriptionStatus.isPro
+    
+    android.util.Log.d("SubscriptionScreen", "❗ isTrialExpired = $isTrialExpired (days=${subscriptionStatus.trialDaysRemaining})")
+    
+    // 체험 만료 시 시스템 백 버튼 차단
+    BackHandler(enabled = isTrialExpired) {
+        // 만료된 경우 뒤로가기 차단 (아무 동작 안 함)
+        android.util.Log.d("SubscriptionScreen", "⛔ 체험 만료 - 뒤로가기 차단됨")
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("PRO 구독") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "뒤로 가기")
+                    // 체험 만료 시에는 뒤로가기 버튼 숨김
+                    if (!isTrialExpired) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "뒤로 가기")
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -83,6 +119,43 @@ fun SubscriptionScreen(
             ) {
                 Spacer(modifier = Modifier.height(20.dp))
                 
+                // ⚠️ 체험 만료 긴급 메시지
+                if (isTrialExpired) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFEF4444).copy(alpha = 0.95f)
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "🚨",
+                                fontSize = 48.sp
+                            )
+                            Text(
+                                text = "무료 체험이 종료되었습니다",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = "지금 구독하고 계속 이용하세요!",
+                                fontSize = 14.sp,
+                                color = Color.White.copy(alpha = 0.9f),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+                
                 // 타이틀
                 Text(
                     text = "로또연구소",
@@ -98,8 +171,8 @@ fun SubscriptionScreen(
                     color = Color(0xFFFFE812)
                 )
                 
-                // 체험 기간 정보
-                if (trialInfo.isActive) {
+                // 체험 기간 정보 (체험 중일 때만 - N일 남음)
+                if (subscriptionStatus.trialActive && subscriptionStatus.trialDaysRemaining > 0) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
@@ -120,7 +193,7 @@ fun SubscriptionScreen(
                                 color = Color(0xFF1E3A8A)
                             )
                             Text(
-                                text = "${trialInfo.remainingDays}일",
+                                text = "${subscriptionStatus.trialDaysRemaining}일",
                                 fontSize = 36.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF1E3A8A)
@@ -230,20 +303,36 @@ fun SubscriptionScreen(
                         .fillMaxWidth()
                         .height(60.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFFE812)
+                        containerColor = if (isTrialExpired) {
+                            Color(0xFFEF4444)  // 만료 시 빨간색 강조
+                        } else {
+                            Color(0xFFFFE812)
+                        }
                     ),
                     shape = RoundedCornerShape(30.dp)
                 ) {
-                    Text(
-                        text = if (trialInfo.isActive) {
-                            "지금 PRO로 업그레이드"
-                        } else {
-                            "PRO 구독 시작하기"
-                        },
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E3A8A)
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    ) {
+                        if (isTrialExpired) {
+                            Text(
+                                text = "🚀 ",
+                                fontSize = 20.sp
+                            )
+                        }
+                        Text(
+                            text = when {
+                                isTrialExpired -> "지금 바로 구독하기"
+                                trialInfo.isActive -> "지금 PRO로 업그레이드"
+                                else -> "PRO 구독 시작하기"
+                            },
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isTrialExpired) Color.White else Color(0xFF1E3A8A)
+                        )
+                    }
                 }
                 
                 // 약관

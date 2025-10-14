@@ -84,8 +84,8 @@ fun SubscriptionStatusScreen(
             // 기능 접근 상태
             AccessStatusCard(hasAccess = status.hasAccess)
             
-            // 체험 정보 (체험 중이거나 사용한 경우)
-            if (status.trialActive || status.isTrialUsed) {
+            // 체험 정보 (PRO 구독자가 아닐 때만 표시)
+            if (!status.isPro && (status.trialActive || status.isTrialUsed)) {
                 TrialInfoCard(
                     trialActive = status.trialActive,
                     trialDaysRemaining = status.trialDaysRemaining,

@@ -224,8 +224,15 @@ async def get_subscription_status(
     
     # 구독 만료 확인
     if subscription.is_pro_subscriber:
-        if not is_subscription_valid(subscription):
+        is_valid = is_subscription_valid(subscription)
+        print(f"🔍 PRO 구독 유효성 체크:")
+        print(f"   subscription_end_date: {subscription.subscription_end_date}")
+        print(f"   now: {datetime.now(timezone.utc)}")
+        print(f"   is_valid: {is_valid}")
+        
+        if not is_valid:
             # 만료된 구독
+            print(f"⏰ 구독 만료 감지 → is_pro_subscriber를 False로 변경")
             subscription.is_pro_subscriber = False
             subscription.subscription_plan = "free"
             db.commit()

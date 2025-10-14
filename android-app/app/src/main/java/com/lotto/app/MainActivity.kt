@@ -129,6 +129,9 @@ fun LottoApp(
     val shouldShowTrialWarning by subscriptionViewModel.shouldShowTrialWarning.collectAsStateWithLifecycle()
     val trialWarningDays by subscriptionViewModel.trialWarningDays.collectAsStateWithLifecycle()
     
+    // 구독 상태 (체험 만료 체크용)
+    val subscriptionStatus by subscriptionViewModel.subscriptionStatus.collectAsStateWithLifecycle()
+    
     // 알림 다이얼로그 표시
     if (shouldShowTrialWarning && trialWarningDays > 0) {
         com.lotto.app.ui.components.TrialExpirationDialog(
@@ -141,6 +144,37 @@ fun LottoApp(
                 navController.navigate(Screen.Subscription.route)
             }
         )
+    }
+    
+    // 체험 만료 시 강제 리다이렉트 (PRO 구독하지 않은 경우)
+    LaunchedEffect(subscriptionStatus.trialActive, subscriptionStatus.isPro, subscriptionStatus.trialDaysRemaining, isLoggedIn) {
+        val currentRoute = navController.currentBackStackEntry?.destination?.route
+        
+        android.util.Log.d("MainActivity", """
+            🔍 만료 체크:
+            - isLoggedIn: $isLoggedIn
+            - currentRoute: $currentRoute
+            - trialDaysRemaining: ${subscriptionStatus.trialDaysRemaining}
+            - trialActive: ${subscriptionStatus.trialActive}
+            - isPro: ${subscriptionStatus.isPro}
+        """.trimIndent())
+        
+        // 로그인 상태이고, 체험 실제로 종료되었으며(0일 이하), PRO가 아니고, 현재 구독 화면이 아닐 때
+        // trialDaysRemaining != -1 체크로 서버 데이터 로드 확인 (-1은 초기값)
+        if (isLoggedIn && 
+            subscriptionStatus.trialDaysRemaining != -1 &&  // 데이터 로드됨 (초기값 아님)
+            subscriptionStatus.trialDaysRemaining <= 0 &&   // 실제 만료 (0 이하, 음수 포함)
+            !subscriptionStatus.trialActive && 
+            !subscriptionStatus.isPro &&
+            currentRoute != Screen.Subscription.route &&
+            currentRoute != Screen.Login.route &&
+            currentRoute != Screen.PlanSelection.route
+        ) {
+            android.util.Log.d("MainActivity", "⏰ 체험 만료 (${subscriptionStatus.trialDaysRemaining}일) → 구독 화면으로 강제 이동")
+            navController.navigate(Screen.Subscription.route) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
     }
     
     // 로그인 상태에 따라 시작 화면 결정
@@ -355,8 +389,27 @@ fun LottoApp(
                     navController.popBackStack()
                 },
                 onNavigateToSubscription = {
-                    // 구독 화면으로 이동 (있다면)
-                    // navController.navigate(Screen.Subscription.route)
+                    navController.navigate(Screen.Subscription.route)
+                }
+            )
+        }
+        
+        // PRO 구독 화면
+        composable(Screen.Subscription.route) {
+            com.lotto.app.ui.screens.SubscriptionScreen(
+                viewModel = subscriptionViewModel,
+                onNavigateBack = {
+                    // 체험 만료 상태에서는 뒤로가기 차단
+                    val status = subscriptionViewModel.subscriptionStatus.value
+                    if (status.trialActive || status.isPro) {
+                        navController.popBackStack()
+                    }
+                },
+                onSubscribed = {
+                    // 구독 완료 후 메인 화면으로 이동
+                    navController.navigate(Screen.Main.route) {
+                        popUpTo(Screen.Subscription.route) { inclusive = true }
+                    }
                 }
             )
         }

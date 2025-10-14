@@ -64,9 +64,9 @@ fun LoginScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // 로고 (연구소 이모지)
+                // 로고 (로봇 + 복권)
                 Text(
-                    text = "🧪",
+                    text = "🎫",
                     fontSize = 64.sp
                 )
                 
