@@ -150,12 +150,14 @@ async def start_trial(
     subscription.trial_start_date = now
     subscription.trial_end_date = now + timedelta(days=30)
     subscription.is_trial_used = True
+    subscription.subscription_plan = "free_trial"
     subscription.updated_at = now
     
     print(f"✅ 무료 체험 시작:")
     print(f"   trial_start_date: {subscription.trial_start_date}")
     print(f"   trial_end_date: {subscription.trial_end_date}")
     print(f"   is_trial_used: {subscription.is_trial_used}")
+    print(f"   subscription_plan: {subscription.subscription_plan}")
     
     db.commit()
     db.refresh(subscription)
