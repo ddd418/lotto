@@ -169,20 +169,32 @@ async def start_trial(
     db.refresh(subscription)
     
     # 응답 생성
-    trial_days_remaining = calculate_trial_days_remaining(subscription)
-    trial_active = trial_days_remaining > 0
-    
-    return SubscriptionStatusResponse(
-        is_pro=subscription.is_pro_subscriber,
-        trial_active=trial_active,
-        trial_days_remaining=trial_days_remaining,
-        subscription_plan=subscription.subscription_plan or "free",
-        has_access=subscription.is_pro_subscriber or trial_active,
-        trial_start_date=subscription.trial_start_date,
-        trial_end_date=subscription.trial_end_date,
-        subscription_end_date=subscription.subscription_end_date,
-        auto_renew=subscription.auto_renew if subscription.auto_renew is not None else False
-    )
+    try:
+        print("📦 응답 생성 시작...")
+        trial_days_remaining = calculate_trial_days_remaining(subscription)
+        print(f"   trial_days_remaining: {trial_days_remaining}")
+        trial_active = trial_days_remaining > 0
+        print(f"   trial_active: {trial_active}")
+        
+        print("📝 SubscriptionStatusResponse 생성 중...")
+        response = SubscriptionStatusResponse(
+            is_pro=subscription.is_pro_subscriber,
+            trial_active=trial_active,
+            trial_days_remaining=trial_days_remaining,
+            subscription_plan=subscription.subscription_plan or "free",
+            has_access=subscription.is_pro_subscriber or trial_active,
+            trial_start_date=subscription.trial_start_date,
+            trial_end_date=subscription.trial_end_date,
+            subscription_end_date=subscription.subscription_end_date,
+            auto_renew=subscription.auto_renew if subscription.auto_renew is not None else False
+        )
+        print("✅ 응답 생성 완료!")
+        return response
+    except Exception as e:
+        print(f"❌ 응답 생성 실패: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 @router.get("/status", response_model=SubscriptionStatusResponse)
