@@ -9,7 +9,6 @@ import com.kakao.sdk.common.model.ClientErrorCause
 import com.kakao.sdk.user.UserApiClient
 import com.lotto.app.data.model.*
 import com.lotto.app.data.remote.AuthApiService
-import com.lotto.app.data.remote.UserDataApiService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
@@ -22,8 +21,7 @@ import kotlin.coroutines.suspendCoroutine
  */
 class AuthRepository(
     private val context: Context,
-    private val authApiService: AuthApiService,
-    private val userDataApiService: UserDataApiService
+    private val authApiService: AuthApiService
 ) {
     private val prefs: SharedPreferences = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
     

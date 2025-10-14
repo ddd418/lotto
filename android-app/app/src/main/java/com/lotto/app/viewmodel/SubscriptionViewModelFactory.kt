@@ -18,7 +18,7 @@ class SubscriptionViewModelFactory(
         if (modelClass.isAssignableFrom(SubscriptionViewModel::class.java)) {
             val subscriptionManager = SubscriptionManager(context)
             val trialManager = TrialManager(context)
-            return SubscriptionViewModel(subscriptionManager, trialManager) as T
+            return SubscriptionViewModel(subscriptionManager, trialManager, context) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

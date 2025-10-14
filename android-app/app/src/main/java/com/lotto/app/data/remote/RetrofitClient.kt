@@ -107,4 +107,8 @@ object RetrofitClient {
     val userSettingsApiService: UserSettingsApiService by lazy {
         retrofit.create(UserSettingsApiService::class.java)
     }
+    
+    val subscriptionApiService: SubscriptionApiService by lazy {
+        retrofit.create(SubscriptionApiService::class.java)
+    }
 }

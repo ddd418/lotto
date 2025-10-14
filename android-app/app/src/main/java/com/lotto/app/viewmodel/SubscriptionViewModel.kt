@@ -18,10 +18,18 @@ import kotlinx.coroutines.launch
  */
 class SubscriptionViewModel(
     private val subscriptionManager: SubscriptionManager,
-    private val trialManager: TrialManager
+    private val trialManager: TrialManager,
+    private val context: Context
 ) : ViewModel() {
     
     private val subscriptionApi: SubscriptionApiService = ServiceLocator.subscriptionApiService
+    
+    // 체험 종료 알림 표시 여부
+    private val _shouldShowTrialWarning = MutableStateFlow(false)
+    val shouldShowTrialWarning: StateFlow<Boolean> = _shouldShowTrialWarning.asStateFlow()
+    
+    private val _trialWarningDays = MutableStateFlow(0)
+    val trialWarningDays: StateFlow<Int> = _trialWarningDays.asStateFlow()
     
     // 구독 상태
     val isProUser: StateFlow<Boolean> = subscriptionManager.isProUser
@@ -72,6 +80,9 @@ class SubscriptionViewModel(
                             remainingDays = it.trialDaysRemaining.toLong()
                         )
                         updateAccessStatus()
+                        
+                        // 체험 종료 임박 알림 체크
+                        checkTrialWarning(it.trialActive, it.trialDaysRemaining)
                     }
                 } else {
                     // 서버 오류 시 로컬 데이터 사용
@@ -82,6 +93,40 @@ class SubscriptionViewModel(
                 updateTrialInfo()
             }
         }
+    }
+    
+    /**
+     * 체험 종료 임박 알림 체크
+     */
+    private fun checkTrialWarning(trialActive: Boolean, daysRemaining: Int) {
+        // PRO 구독자는 알림 불필요
+        if (isProUser.value) {
+            return
+        }
+        
+        // 체험 중이고, 15일/5일/2일 남았을 때만 알림
+        if (trialActive && (daysRemaining == 15 || daysRemaining == 5 || daysRemaining == 2)) {
+            val prefs = context.getSharedPreferences("trial_warnings", Context.MODE_PRIVATE)
+            val key = "warning_shown_$daysRemaining"
+            val alreadyShown = prefs.getBoolean(key, false)
+            
+            if (!alreadyShown) {
+                _trialWarningDays.value = daysRemaining
+                _shouldShowTrialWarning.value = true
+            }
+        }
+    }
+    
+    /**
+     * 알림 확인 (다시 표시하지 않도록 저장)
+     */
+    fun dismissTrialWarning() {
+        val days = _trialWarningDays.value
+        if (days > 0) {
+            val prefs = context.getSharedPreferences("trial_warnings", Context.MODE_PRIVATE)
+            prefs.edit().putBoolean("warning_shown_$days", true).apply()
+        }
+        _shouldShowTrialWarning.value = false
     }
     
     /**

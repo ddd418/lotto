@@ -125,6 +125,24 @@ fun LottoApp(
     
     val isLoggedIn by authViewModel.isLoggedIn.collectAsStateWithLifecycle()
     
+    // 체험 종료 임박 알림
+    val shouldShowTrialWarning by subscriptionViewModel.shouldShowTrialWarning.collectAsStateWithLifecycle()
+    val trialWarningDays by subscriptionViewModel.trialWarningDays.collectAsStateWithLifecycle()
+    
+    // 알림 다이얼로그 표시
+    if (shouldShowTrialWarning && trialWarningDays > 0) {
+        com.lotto.app.ui.components.TrialExpirationDialog(
+            daysRemaining = trialWarningDays,
+            onDismiss = {
+                subscriptionViewModel.dismissTrialWarning()
+            },
+            onUpgrade = {
+                subscriptionViewModel.dismissTrialWarning()
+                navController.navigate(Screen.Subscription.route)
+            }
+        )
+    }
+    
     // 로그인 상태에 따라 시작 화면 결정
     val startDestination = if (isLoggedIn) Screen.Main.route else Screen.Login.route
     
