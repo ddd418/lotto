@@ -3,7 +3,7 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from pydantic import BaseModel
 
@@ -95,11 +95,16 @@ def calculate_trial_days_remaining(subscription: UserSubscription) -> int:
     if not subscription.trial_start_date or not subscription.trial_end_date:
         return 0
     
-    now = datetime.now()
-    if now > subscription.trial_end_date:
+    now = datetime.now(timezone.utc)
+    # trial_end_date가 naive datetime이면 UTC로 간주
+    trial_end = subscription.trial_end_date
+    if trial_end.tzinfo is None:
+        trial_end = trial_end.replace(tzinfo=timezone.utc)
+    
+    if now > trial_end:
         return 0
     
-    remaining = (subscription.trial_end_date - now).days
+    remaining = (trial_end - now).days
     return max(0, remaining)
 
 
@@ -111,8 +116,11 @@ def is_subscription_valid(subscription: UserSubscription) -> bool:
     if not subscription.subscription_end_date:
         return False
     
-    now = datetime.now()
-    return now < subscription.subscription_end_date
+    now = datetime.now(timezone.utc)
+    subscription_end = subscription.subscription_end_date
+    if subscription_end.tzinfo is None:
+        subscription_end = subscription_end.replace(tzinfo=timezone.utc)
+    return now < subscription_end
 
 
 # ==================== API 엔드포인트 ====================
@@ -152,7 +160,7 @@ async def start_trial(
         )
     
     # 체험 시작
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     subscription.trial_start_date = now
     subscription.trial_end_date = now + timedelta(days=30)
     subscription.is_trial_used = True
@@ -277,7 +285,7 @@ async def verify_purchase(
         )
     
     # PRO 구독 활성화
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     subscription.is_pro_subscriber = True
     subscription.subscription_plan = "pro"
     subscription.subscription_start_date = now
@@ -320,8 +328,8 @@ async def cancel_subscription(
     
     # 자동 갱신 비활성화
     subscription.auto_renew = False
-    subscription.cancelled_at = datetime.now()
-    subscription.updated_at = datetime.now()
+    subscription.cancelled_at = datetime.now(timezone.utc)
+    subscription.updated_at = datetime.now(timezone.utc)
     
     db.commit()
     
@@ -347,7 +355,7 @@ async def get_expiring_trials(
     """
     # TODO: 관리자 권한 체크 추가
     
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     target_date = now + timedelta(days=days)
     
     expiring_subscriptions = db.query(UserSubscription, User).join(
@@ -400,7 +408,7 @@ async def get_subscription_stats(
     trial_users = db.query(UserSubscription).filter(
         UserSubscription.is_trial_used == True,
         UserSubscription.is_pro_subscriber == False,
-        UserSubscription.trial_end_date > datetime.now()
+        UserSubscription.trial_end_date > datetime.now(timezone.utc)
     ).count()
     
     trial_used = db.query(UserSubscription).filter(
