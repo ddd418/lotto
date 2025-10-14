@@ -168,12 +168,12 @@ async def start_trial(
         is_pro=subscription.is_pro_subscriber,
         trial_active=trial_active,
         trial_days_remaining=trial_days_remaining,
-        subscription_plan=subscription.subscription_plan,
+        subscription_plan=subscription.subscription_plan or "free",
         has_access=subscription.is_pro_subscriber or trial_active,
         trial_start_date=subscription.trial_start_date,
         trial_end_date=subscription.trial_end_date,
         subscription_end_date=subscription.subscription_end_date,
-        auto_renew=subscription.auto_renew
+        auto_renew=subscription.auto_renew if subscription.auto_renew is not None else False
     )
 
 
@@ -211,12 +211,12 @@ async def get_subscription_status(
         is_pro=subscription.is_pro_subscriber,
         trial_active=trial_active,
         trial_days_remaining=trial_days_remaining,
-        subscription_plan=subscription.subscription_plan,
+        subscription_plan=subscription.subscription_plan or "free",
         has_access=subscription.is_pro_subscriber or trial_active,
         trial_start_date=subscription.trial_start_date,
         trial_end_date=subscription.trial_end_date,
         subscription_end_date=subscription.subscription_end_date,
-        auto_renew=subscription.auto_renew
+        auto_renew=subscription.auto_renew if subscription.auto_renew is not None else False
     )
 
 
