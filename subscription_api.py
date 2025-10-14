@@ -31,6 +31,12 @@ class SubscriptionStatusResponse(BaseModel):
     trial_end_date: Optional[datetime] = None
     subscription_end_date: Optional[datetime] = None
     auto_renew: bool
+    
+    class Config:
+        from_attributes = True  # Pydantic v2
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
 
 class VerifyPurchaseRequest(BaseModel):
     """Google Play 구매 검증 요청"""
