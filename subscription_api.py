@@ -113,7 +113,6 @@ def is_subscription_valid(subscription: UserSubscription) -> bool:
 
 @router.post("/start-trial", response_model=SubscriptionStatusResponse)
 async def start_trial(
-    request: TrialStartRequest,
     user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
