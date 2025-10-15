@@ -29,6 +29,7 @@ import com.lotto.app.viewmodel.UiState
 @Composable
 fun MainScreen(
     viewModel: LottoViewModel,
+    subscriptionViewModel: com.lotto.app.viewmodel.SubscriptionViewModel,
     onNavigateToRecommend: () -> Unit,
     onNavigateToStats: () -> Unit,
     onNavigateToSavedNumbers: () -> Unit,
@@ -39,6 +40,7 @@ fun MainScreen(
 ) {
     val latestDrawState by viewModel.latestDrawState.collectAsStateWithLifecycle()
     val isServerConnected by viewModel.isServerConnected.collectAsStateWithLifecycle()
+    val hasAccess by subscriptionViewModel.hasAccess.collectAsStateWithLifecycle()
     
     Box(
         modifier = Modifier

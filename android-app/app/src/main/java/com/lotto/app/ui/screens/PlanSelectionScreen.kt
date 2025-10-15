@@ -1,5 +1,6 @@
 package com.lotto.app.ui.screens
 
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,7 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lotto.app.ui.theme.NotionColors
+import com.lotto.app.viewmodel.SubscriptionViewModel
 
 /**
  * 첫 가입자를 위한 플랜 선택 화면
@@ -24,9 +27,19 @@ import com.lotto.app.ui.theme.NotionColors
 @Composable
 fun PlanSelectionScreen(
     onFreePlanSelected: () -> Unit,
-    onProPlanSelected: () -> Unit
+    onProPlanSelected: () -> Unit,
+    subscriptionViewModel: SubscriptionViewModel,
+    activity: Activity
 ) {
     var selectedPlan by remember { mutableStateOf<String?>(null) }
+    val isProUser by subscriptionViewModel.isProUser.collectAsStateWithLifecycle()
+    
+    // PRO 구독 완료 시 자동으로 메인으로 이동
+    LaunchedEffect(isProUser) {
+        if (isProUser) {
+            onFreePlanSelected() // 메인 화면으로 이동 (트라이얼은 서버에서 자동 처리)
+        }
+    }
     
     Box(
         modifier = Modifier
@@ -49,7 +62,7 @@ fun PlanSelectionScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "🧪",
+                    text = "🎱",
                     fontSize = 64.sp
                 )
                 Text(
@@ -88,13 +101,14 @@ fun PlanSelectionScreen(
             // 프로 플랜 카드
             PlanCard(
                 title = "프로 플랜",
-                subtitle = "모든 기능 무제한",
+                subtitle = "자동 갱신 구독",
                 price = "₩1,900/월",
                 features = listOf(
                     "번호 추천 알고리즘" to true,
                     "고급 분석 리포트" to true,
                     "내 번호 저장 기능" to true,
-                    "광고 제거" to true
+                    "광고 없음" to true,
+                    "언제든지 취소 가능" to true
                 ),
                 isSelected = selectedPlan == "pro",
                 isPremium = true,
@@ -108,7 +122,10 @@ fun PlanSelectionScreen(
                 onClick = {
                     when (selectedPlan) {
                         "free" -> onFreePlanSelected()
-                        "pro" -> onProPlanSelected()
+                        "pro" -> {
+                            // 바로 Google Play 결제 시작
+                            subscriptionViewModel.startSubscription(activity)
+                        }
                     }
                 },
                 enabled = selectedPlan != null,
@@ -124,11 +141,22 @@ fun PlanSelectionScreen(
                 Text(
                     text = when (selectedPlan) {
                         "free" -> "30일 무료로 시작하기"
-                        "pro" -> "프로 플랜으로 시작하기"
+                        "pro" -> "₩1,900/월 구독하기"
                         else -> "플랜을 선택해주세요"
                     },
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold
+                )
+            }
+            
+            // 결제 안내 문구
+            if (selectedPlan == "pro") {
+                Text(
+                    text = "• Google Play를 통해 안전하게 결제됩니다\n• 매달 자동으로 갱신되며, 언제든지 취소 가능합니다",
+                    fontSize = 12.sp,
+                    color = NotionColors.TextSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 24.dp)
                 )
             }
             

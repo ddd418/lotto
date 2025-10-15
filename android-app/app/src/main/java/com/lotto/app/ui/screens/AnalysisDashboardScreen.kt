@@ -20,8 +20,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lotto.app.data.model.DashboardResponse
+import com.lotto.app.ui.components.BannerAdView
 import com.lotto.app.ui.viewmodel.DashboardUiState
 import com.lotto.app.ui.viewmodel.DashboardViewModel
+import com.lotto.app.viewmodel.SubscriptionViewModel
 import kotlin.math.roundToInt
 
 /**
@@ -31,6 +33,7 @@ import kotlin.math.roundToInt
 @Composable
 fun AnalysisDashboardScreen(
     onNavigateBack: () -> Unit,
+    subscriptionViewModel: SubscriptionViewModel,
     viewModel: DashboardViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()

@@ -31,6 +31,7 @@ import com.lotto.app.viewmodel.UiState
 @Composable
 fun StatsScreen(
     viewModel: LottoViewModel,
+    subscriptionViewModel: com.lotto.app.viewmodel.SubscriptionViewModel,
     onNavigateBack: () -> Unit
 ) {
     val statsState by viewModel.statsState.collectAsStateWithLifecycle()

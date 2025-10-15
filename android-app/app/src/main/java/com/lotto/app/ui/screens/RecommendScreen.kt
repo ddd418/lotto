@@ -38,12 +38,14 @@ import com.lotto.app.viewmodel.UiState
 fun RecommendScreen(
     viewModel: LottoViewModel,
     savedNumberViewModel: com.lotto.app.viewmodel.SavedNumberViewModel,
+    subscriptionViewModel: com.lotto.app.viewmodel.SubscriptionViewModel,
     onNavigateBack: () -> Unit
 ) {
     val recommendState by viewModel.recommendState.collectAsStateWithLifecycle()
     val isLoading by savedNumberViewModel.isLoading.collectAsStateWithLifecycle()
     val successMessage by savedNumberViewModel.successMessage.collectAsStateWithLifecycle()
     val error by savedNumberViewModel.error.collectAsStateWithLifecycle()
+    
     var numberOfSets by remember { mutableIntStateOf(5) }
     var selectedMode by remember { mutableStateOf("ai") }
     

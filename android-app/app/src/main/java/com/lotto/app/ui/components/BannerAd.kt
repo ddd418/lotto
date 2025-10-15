@@ -16,22 +16,46 @@ import com.google.android.gms.ads.AdView
 @Composable
 fun BannerAdView(
     modifier: Modifier = Modifier,
-    adUnitId: String = "ca-app-pub-3940256099942544/6300978111" // 테스트 광고 ID
+    adUnitId: String = "ca-app-pub-9417535388801609/6347505860" // 실제 프로덕션 광고 ID
 ) {
     val context = LocalContext.current
+    
+    // 디버깅 로그
+    android.util.Log.d("BannerAdView", "=== 광고 렌더링 시작 ===")
+    android.util.Log.d("BannerAdView", "Ad Unit ID: $adUnitId")
     
     AndroidView(
         modifier = modifier
             .fillMaxWidth()
             .height(60.dp),
         factory = { ctx ->
+            android.util.Log.d("BannerAdView", "AdView 생성 중...")
             AdView(ctx).apply {
                 setAdSize(AdSize.BANNER)
                 this.adUnitId = adUnitId
+                
+                // 광고 리스너 추가
+                adListener = object : com.google.android.gms.ads.AdListener() {
+                    override fun onAdLoaded() {
+                        android.util.Log.d("BannerAdView", "✅ 광고 로드 성공!")
+                    }
+                    
+                    override fun onAdFailedToLoad(error: com.google.android.gms.ads.LoadAdError) {
+                        android.util.Log.e("BannerAdView", "❌ 광고 로드 실패: ${error.message}")
+                        android.util.Log.e("BannerAdView", "Error Code: ${error.code}")
+                        android.util.Log.e("BannerAdView", "Error Domain: ${error.domain}")
+                    }
+                    
+                    override fun onAdOpened() {
+                        android.util.Log.d("BannerAdView", "광고 클릭됨")
+                    }
+                }
+                
                 loadAd(AdRequest.Builder().build())
             }
         },
         update = { adView ->
+            android.util.Log.d("BannerAdView", "AdView 업데이트 - 광고 재로드")
             adView.loadAd(AdRequest.Builder().build())
         }
     )

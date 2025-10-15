@@ -1,5 +1,6 @@
 package com.lotto.app
 
+import android.app.Activity
 import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -147,7 +148,7 @@ fun LottoApp(
     }
     
     // 체험 만료 시 강제 리다이렉트 (PRO 구독하지 않은 경우)
-    LaunchedEffect(subscriptionStatus.trialActive, subscriptionStatus.isPro, subscriptionStatus.trialDaysRemaining, isLoggedIn) {
+    LaunchedEffect(subscriptionStatus) {  // subscriptionStatus 전체를 key로 사용
         val currentRoute = navController.currentBackStackEntry?.destination?.route
         
         android.util.Log.d("MainActivity", """
@@ -157,20 +158,18 @@ fun LottoApp(
             - trialDaysRemaining: ${subscriptionStatus.trialDaysRemaining}
             - trialActive: ${subscriptionStatus.trialActive}
             - isPro: ${subscriptionStatus.isPro}
+            - hasAccess: ${subscriptionStatus.hasAccess}
         """.trimIndent())
         
-        // 로그인 상태이고, 체험 실제로 종료되었으며(0일 이하), PRO가 아니고, 현재 구독 화면이 아닐 때
-        // trialDaysRemaining != -1 체크로 서버 데이터 로드 확인 (-1은 초기값)
+        // hasAccess가 false면 즉시 차단 (서버가 판단한 접근 권한)
         if (isLoggedIn && 
-            subscriptionStatus.trialDaysRemaining != -1 &&  // 데이터 로드됨 (초기값 아님)
-            subscriptionStatus.trialDaysRemaining <= 0 &&   // 실제 만료 (0 이하, 음수 포함)
-            !subscriptionStatus.trialActive && 
-            !subscriptionStatus.isPro &&
+            !subscriptionStatus.hasAccess &&  // 서버가 접근 권한 없음으로 판단
+            subscriptionStatus.trialDaysRemaining != -1 &&  // 데이터 로드됨
             currentRoute != Screen.Subscription.route &&
             currentRoute != Screen.Login.route &&
             currentRoute != Screen.PlanSelection.route
         ) {
-            android.util.Log.d("MainActivity", "⏰ 체험 만료 (${subscriptionStatus.trialDaysRemaining}일) → 구독 화면으로 강제 이동")
+            android.util.Log.d("MainActivity", "🚨 접근 권한 없음 (hasAccess=false) → 구독 화면으로 강제 이동")
             navController.navigate(Screen.Subscription.route) {
                 popUpTo(0) { inclusive = true }
             }
@@ -236,11 +235,12 @@ fun LottoApp(
                     }
                 },
                 onProPlanSelected = {
-                    // 프로 플랜 선택 - 구독 화면으로 이동
-                    navController.navigate(Screen.Subscription.route) {
-                        popUpTo(Screen.PlanSelection.route) { inclusive = true }
-                    }
-                }
+                    // 프로 플랜 선택 - 바로 결제 시작
+                    subscriptionViewModel.startSubscription(context as Activity)
+                    // 결제 완료되면 자동으로 Main으로 이동 (SubscriptionViewModel에서 처리)
+                },
+                subscriptionViewModel = subscriptionViewModel,
+                activity = context as Activity
             )
         }
         
@@ -248,6 +248,7 @@ fun LottoApp(
         composable(Screen.Main.route) {
             MainScreen(
                 viewModel = viewModel,
+                subscriptionViewModel = subscriptionViewModel,
                 onNavigateToRecommend = {
                     navController.navigate(Screen.Recommend.route)
                 },
@@ -279,6 +280,7 @@ fun LottoApp(
             RecommendScreen(
                 viewModel = viewModel,
                 savedNumberViewModel = savedNumberViewModel,
+                subscriptionViewModel = subscriptionViewModel,
                 onNavigateBack = {
                     navController.popBackStack()
                 }
@@ -289,6 +291,7 @@ fun LottoApp(
         composable(Screen.Stats.route) {
             StatsScreen(
                 viewModel = viewModel,
+                subscriptionViewModel = subscriptionViewModel,
                 onNavigateBack = {
                     navController.popBackStack()
                 }
@@ -368,7 +371,8 @@ fun LottoApp(
             AnalysisDashboardScreen(
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
+                subscriptionViewModel = subscriptionViewModel
             )
         }
         
