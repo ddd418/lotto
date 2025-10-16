@@ -119,7 +119,7 @@ fun TrialEndedBanner(
                 shape = RoundedCornerShape(20.dp)
             ) {
                 Text(
-                    text = "₩1,900/월",
+                    text = "₩1,000/월",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFEF4444)

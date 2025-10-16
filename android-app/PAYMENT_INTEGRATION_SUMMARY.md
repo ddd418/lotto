@@ -24,7 +24,7 @@ Google Play 결제 창 표시 ← Google Play Billing API
     ↓
 사용자 결제 정보 입력
     ↓
-₩1,900 결제 완료
+₩1,000 결제 완료
     ↓
 구매 검증 (서버) ← Railway Backend API
     ↓
@@ -36,7 +36,7 @@ PRO 상태 활성화
 ### 3️⃣ 자동 갱신 구독
 
 - **상품 ID**: `lotto_pro_monthly`
-- **가격**: ₩1,900/월
+- **가격**: ₩1,000/월
 - **갱신 주기**: 매월 자동 갱신
 - **취소**: Google Play Store에서 언제든지 가능
 
@@ -61,7 +61,7 @@ subscriptionViewModel.cancelSubscription()
 - [ ] **2. 구독 상품 생성**:
   - 제품 ID: `lotto_pro_monthly`
   - 이름: 로또연구소 PRO
-  - 가격: ₩1,900/월
+  - 가격: ₩1,000/월
   - 청구 기간: 월간 (1개월)
   - 갱신: 자동 갱신 활성화
 - [ ] **3. 라이선스 테스터 추가**: 본인 Google 계정
@@ -129,7 +129,7 @@ D/SubscriptionViewModel: Trial ended, PRO active
 
 1. 로그인
 2. "프로 플랜" 선택
-3. Google Play 결제 (₩1,900/월)
+3. Google Play 결제 (₩1,000/월)
 4. 즉시 PRO 활성화
 5. 30일마다 자동 갱신
 
@@ -137,7 +137,7 @@ D/SubscriptionViewModel: Trial ended, PRO active
 
 1. 체험 중 설정 > 구독 관리
 2. "PRO로 업그레이드" 클릭
-3. Google Play 결제 (₩1,900/월)
+3. Google Play 결제 (₩1,000/월)
 4. 즉시 PRO 활성화
 
 ### 시나리오 4: 구독 취소
@@ -266,7 +266,7 @@ subscriptionManager.checkSubscriptionStatus() // 명시적 호출
 
 ```
 로또연구소 PRO 구독:
-• 월 ₩1,900 자동 갱신
+• 월 ₩1,000 자동 갱신
 • 광고 없음
 • 모든 프리미엄 기능 무제한
 • 언제든지 취소 가능

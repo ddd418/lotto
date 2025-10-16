@@ -430,5 +430,5 @@ async def get_subscription_stats(
         "active_trial_users": trial_users,
         "total_trial_used": trial_used,
         "conversion_rate": round(conversion_rate, 2),
-        "revenue_estimate_monthly": pro_subscribers * 1900  # ₩1,900 × 구독자 수
+        "revenue_estimate_monthly": pro_subscribers * 1000  # ₩1,000 × 구독자 수
     }

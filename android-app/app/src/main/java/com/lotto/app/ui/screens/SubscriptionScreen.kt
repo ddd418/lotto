@@ -266,7 +266,7 @@ fun SubscriptionScreen(
                                     color = Color(0xFF64748B)
                                 )
                                 Text(
-                                    text = "₩1,900",
+                                    text = "₩1,000",
                                     fontSize = 28.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF1E3A8A)

@@ -304,7 +304,7 @@ private fun SubscriptionInfoCard(
                 color = NotionColors.TextPrimary
             )
             
-            InfoRow("플랜", "PRO (₩1,900/월)")
+            InfoRow("플랜", "PRO (₩1,000/월)")
             subscriptionEndDate?.let {
                 InfoRow("다음 결제일", formatDate(it))
             }
@@ -442,7 +442,7 @@ private fun PlanComparisonCard(
             ComparisonRow("내 번호 저장 기능", true, true)
             ComparisonRow("광고 제거", false, true)
             ComparisonRow("무료 사용 기간", "1개월", "제한 없음")
-            ComparisonRow("월 구독료", "무료", "₩1,900")
+            ComparisonRow("월 구독료", "무료", "₩1,000")
             
             Divider(color = NotionColors.Border)
             
