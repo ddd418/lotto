@@ -1,7 +1,10 @@
 package com.lotto.app
 
 import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,6 +15,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -66,8 +72,30 @@ class MainActivity : ComponentActivity() {
     private val viewModel: LottoViewModel by viewModels()
     private val themeViewModel: ThemeViewModel by viewModels()
     
+    private var showAuthErrorDialog = mutableStateOf(false)
+    
+    // 401 에러 브로드캐스트 수신기
+    private val authErrorReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "com.lotto.app.AUTH_ERROR") {
+                showAuthErrorDialog.value = true
+            }
+        }
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // 브로드캐스트 수신기 등록 (Android 13+ 호환)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(
+                authErrorReceiver, 
+                IntentFilter("com.lotto.app.AUTH_ERROR"),
+                Context.RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            registerReceiver(authErrorReceiver, IntentFilter("com.lotto.app.AUTH_ERROR"))
+        }
         
         // 테마 설정 로드
         themeViewModel.loadThemePreference(this)
@@ -95,11 +123,23 @@ class MainActivity : ComponentActivity() {
                     LottoApp(
                         viewModel = viewModel, 
                         themeViewModel = themeViewModel,
-                        context = this@MainActivity
+                        context = this@MainActivity,
+                        showAuthErrorDialog = showAuthErrorDialog.value,
+                        onDismissAuthError = { 
+                            showAuthErrorDialog.value = false
+                            // 앱 종료
+                            finish()
+                        }
                     )
                 }
             }
         }
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        // 브로드캐스트 수신기 해제
+        unregisterReceiver(authErrorReceiver)
     }
 }
 
@@ -110,9 +150,32 @@ class MainActivity : ComponentActivity() {
 fun LottoApp(
     viewModel: LottoViewModel, 
     themeViewModel: ThemeViewModel,
-    context: Context
+    context: Context,
+    showAuthErrorDialog: Boolean,
+    onDismissAuthError: () -> Unit
 ) {
     val navController = rememberNavController()
+    
+    // 401 에러 다이얼로그
+    if (showAuthErrorDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = onDismissAuthError,
+            title = {
+                androidx.compose.material3.Text("로그인 세션 만료")
+            },
+            text = {
+                androidx.compose.material3.Text(
+                    "로그인 세션이 만료되었습니다.\n" +
+                    "앱을 종료했다가 다시 실행해주세요."
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = onDismissAuthError) {
+                    androidx.compose.material3.Text("확인")
+                }
+            }
+        )
+    }
     
     // AuthViewModel을 Composable 내에서 생성
     val authViewModel: AuthViewModel = viewModel(
@@ -184,8 +247,12 @@ fun LottoApp(
         val currentRoute = navController.currentBackStackEntry?.destination?.route
         
         when {
-            // 로그인 성공 시 메인 화면으로 이동
+            // 로그인 성공 시 서버에서 구독 상태 즉시 가져오고 메인 화면으로 이동
             isLoggedIn && currentRoute == Screen.Login.route -> {
+                android.util.Log.d("MainActivity", "🔐 로그인 성공 - 구독 상태 새로고침")
+                subscriptionViewModel.syncWithServer()
+                subscriptionViewModel.refreshStatus()
+                
                 navController.navigate(Screen.Main.route) {
                     popUpTo(Screen.Login.route) { inclusive = true }
                 }
@@ -403,10 +470,14 @@ fun LottoApp(
             com.lotto.app.ui.screens.SubscriptionScreen(
                 viewModel = subscriptionViewModel,
                 onNavigateBack = {
-                    // 체험 만료 상태에서는 뒤로가기 차단
+                    // 체험 만료 상태에서는 뒤로가기 완전 차단
                     val status = subscriptionViewModel.subscriptionStatus.value
-                    if (status.trialActive || status.isPro) {
+                    if (status.hasAccess) {
+                        // 접근 권한이 있을 때만 뒤로가기 허용
                         navController.popBackStack()
+                    } else {
+                        // 접근 권한 없으면 뒤로가기 차단 (아무 동작 안함)
+                        android.util.Log.d("MainActivity", "🚫 구독 만료 상태 - 뒤로가기 차단")
                     }
                 },
                 onSubscribed = {

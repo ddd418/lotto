@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lotto.app.data.model.DashboardResponse
-import com.lotto.app.ui.components.BannerAdView
 import com.lotto.app.ui.viewmodel.DashboardUiState
 import com.lotto.app.ui.viewmodel.DashboardViewModel
 import com.lotto.app.viewmodel.SubscriptionViewModel

@@ -1,6 +1,7 @@
 package com.lotto.app.data.remote
 
 import android.content.Context
+import android.content.Intent
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -52,6 +53,27 @@ object RetrofitClient {
     }
     
     /**
+     * 401 에러 처리 인터셉터
+     */
+    private val authErrorInterceptor = Interceptor { chain ->
+        val response = chain.proceed(chain.request())
+        
+        // 401 Unauthorized 에러 체크
+        if (response.code == 401) {
+            // 토큰 삭제
+            clearAccessToken()
+            
+            // 브로드캐스트 전송 (MainActivity에서 수신)
+            applicationContext?.let { context ->
+                val intent = Intent("com.lotto.app.AUTH_ERROR")
+                context.sendBroadcast(intent)
+            }
+        }
+        
+        response
+    }
+    
+    /**
      * SharedPreferences에서 액세스 토큰 가져오기
      */
     private fun getAccessToken(): String? {
@@ -60,11 +82,22 @@ object RetrofitClient {
     }
     
     /**
+     * 액세스 토큰 삭제
+     */
+    private fun clearAccessToken() {
+        applicationContext?.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+            ?.edit()
+            ?.remove("access_token")
+            ?.apply()
+    }
+    
+    /**
      * OkHttp 클라이언트
      */
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(loggingInterceptor)
         .addInterceptor(authInterceptor)
+        .addInterceptor(authErrorInterceptor)  // 401 에러 처리
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)

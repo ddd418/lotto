@@ -96,7 +96,7 @@ fun TrialExpirationDialog(
                 // 안내 메시지
                 Text(
                     text = when {
-                        daysRemaining <= 2 -> "체험 종료 후에는 고급 분석 리포트와 광고 제거 기능을 사용할 수 없습니다."
+                        daysRemaining <= 2 -> "체험 종료 후에는 고급 분석 리포트와 프리미엄 기능을 사용할 수 없습니다."
                         daysRemaining <= 5 -> "프로 플랜으로 업그레이드하여 계속 모든 기능을 이용하세요."
                         else -> "지금 프로 플랜으로 업그레이드하면 계속해서 모든 기능을 제한 없이 이용할 수 있습니다."
                     },

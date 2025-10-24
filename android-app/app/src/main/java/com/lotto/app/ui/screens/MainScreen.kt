@@ -41,6 +41,62 @@ fun MainScreen(
     val latestDrawState by viewModel.latestDrawState.collectAsStateWithLifecycle()
     val isServerConnected by viewModel.isServerConnected.collectAsStateWithLifecycle()
     val hasAccess by subscriptionViewModel.hasAccess.collectAsStateWithLifecycle()
+    val subscriptionStatus by subscriptionViewModel.subscriptionStatus.collectAsStateWithLifecycle()
+    
+    // 접근 권한이 없으면 차단 화면 표시
+    if (!hasAccess && subscriptionStatus.trialDaysRemaining != -1) {
+        // 만료 화면 표시
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                Text(
+                    text = "🔒",
+                    fontSize = 64.sp
+                )
+                
+                Text(
+                    text = "무료 체험이 종료되었습니다",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                
+                Text(
+                    text = "PRO 구독을 통해 계속 사용하실 수 있습니다",
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // 설정 화면으로 이동 버튼 (구독 화면 진입 가능)
+                Button(
+                    onClick = onNavigateToSettings,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(
+                        text = "구독하기",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+        return
+    }
     
     Box(
         modifier = Modifier

@@ -267,7 +267,7 @@ subscriptionManager.checkSubscriptionStatus() // 명시적 호출
 ```
 로또연구소 PRO 구독:
 • 월 ₩1,000 자동 갱신
-• 광고 없음
+• 프리미엄 환경
 • 모든 프리미엄 기능 무제한
 • 언제든지 취소 가능
 • 30일 무료 체험 (신규 사용자)

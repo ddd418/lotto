@@ -91,3 +91,12 @@
 -keep class * extends androidx.lifecycle.AndroidViewModel {
     <init>(...);
 }
+
+# Kakao SDK
+-keep class com.kakao.sdk.** { *; }
+-keep interface com.kakao.sdk.** { *; }
+-dontwarn com.kakao.sdk.**
+
+# Keep Application class
+-keep class com.lotto.app.LottoApplication { *; }
+-keep class com.lotto.app.MainActivity { *; }

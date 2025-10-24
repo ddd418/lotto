@@ -2,6 +2,7 @@ package com.lotto.app.billing
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import com.android.billingclient.api.*
 import com.lotto.app.data.model.VerifyPurchaseRequest
 import com.lotto.app.data.remote.SubscriptionApiService
@@ -39,8 +40,10 @@ class SubscriptionManager(
      * Billing Client 초기화
      */
     fun initialize() {
+        Log.d("SubscriptionManager", "initialize() 시작")
         billingClient = BillingClient.newBuilder(context)
             .setListener { billingResult, purchases ->
+                Log.d("SubscriptionManager", "Purchase update: ${billingResult.responseCode}")
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
                     handlePurchases(purchases)
                 }
@@ -50,15 +53,18 @@ class SubscriptionManager(
         
         billingClient?.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(billingResult: BillingResult) {
+                Log.d("SubscriptionManager", "Billing setup finished: ${billingResult.responseCode}")
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
                     _subscriptionState.value = SubscriptionState.Ready
                     checkSubscriptionStatus()
                 } else {
-                    _subscriptionState.value = SubscriptionState.Error("Billing setup failed")
+                    _subscriptionState.value = SubscriptionState.Error("Billing setup failed: ${billingResult.debugMessage}")
+                    Log.e("SubscriptionManager", "Billing setup error: ${billingResult.debugMessage}")
                 }
             }
             
             override fun onBillingServiceDisconnected() {
+                Log.d("SubscriptionManager", "Billing service disconnected")
                 _subscriptionState.value = SubscriptionState.Disconnected
             }
         })
@@ -87,6 +93,40 @@ class SubscriptionManager(
      * 구독 시작
      */
     fun launchSubscriptionFlow(activity: Activity) {
+        Log.d("SubscriptionManager", "launchSubscriptionFlow 시작")
+        
+        if (billingClient == null) {
+            Log.e("SubscriptionManager", "BillingClient가 null입니다!")
+            _subscriptionState.value = SubscriptionState.Error("결제 시스템이 초기화되지 않았습니다")
+            return
+        }
+        
+        if (!billingClient!!.isReady) {
+            Log.w("SubscriptionManager", "BillingClient가 준비되지 않았습니다. 재연결 시도...")
+            _subscriptionState.value = SubscriptionState.Error("결제 시스템 연결 중입니다. 잠시 후 다시 시도해주세요.")
+            
+            // BillingClient 재연결 시도
+            billingClient?.startConnection(object : BillingClientStateListener {
+                override fun onBillingSetupFinished(billingResult: BillingResult) {
+                    if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                        Log.d("SubscriptionManager", "재연결 성공, 구독 흐름 다시 시작")
+                        _subscriptionState.value = SubscriptionState.Ready
+                        // 연결 성공 후 다시 시도
+                        launchSubscriptionFlow(activity)
+                    } else {
+                        Log.e("SubscriptionManager", "재연결 실패: ${billingResult.debugMessage}")
+                        _subscriptionState.value = SubscriptionState.Error("결제 시스템 연결 실패: ${billingResult.debugMessage}")
+                    }
+                }
+                
+                override fun onBillingServiceDisconnected() {
+                    Log.w("SubscriptionManager", "재연결 중 연결 끊김")
+                    _subscriptionState.value = SubscriptionState.Disconnected
+                }
+            })
+            return
+        }
+        
         val productList = listOf(
             QueryProductDetailsParams.Product.newBuilder()
                 .setProductId(SUBSCRIPTION_PRODUCT_ID)
@@ -98,11 +138,24 @@ class SubscriptionManager(
             .setProductList(productList)
             .build()
         
+        Log.d("SubscriptionManager", "제품 정보 조회 시작: $SUBSCRIPTION_PRODUCT_ID")
+        
         billingClient?.queryProductDetailsAsync(params) { billingResult, productDetailsList ->
+            Log.d("SubscriptionManager", "제품 정보 조회 결과: ${billingResult.responseCode}, 제품 수: ${productDetailsList.size}")
+            
             if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && productDetailsList.isNotEmpty()) {
                 val productDetails = productDetailsList.first()
                 
-                val offerToken = productDetails.subscriptionOfferDetails?.firstOrNull()?.offerToken ?: return@queryProductDetailsAsync
+                Log.d("SubscriptionManager", "제품명: ${productDetails.name}, 제품 ID: ${productDetails.productId}")
+                Log.d("SubscriptionManager", "구독 옵션 수: ${productDetails.subscriptionOfferDetails?.size ?: 0}")
+                
+                val offerToken = productDetails.subscriptionOfferDetails?.firstOrNull()?.offerToken
+                
+                if (offerToken == null) {
+                    Log.e("SubscriptionManager", "구독 옵션을 찾을 수 없습니다!")
+                    _subscriptionState.value = SubscriptionState.Error("구독 상품을 찾을 수 없습니다")
+                    return@queryProductDetailsAsync
+                }
                 
                 val productDetailsParamsList = listOf(
                     BillingFlowParams.ProductDetailsParams.newBuilder()
@@ -115,7 +168,12 @@ class SubscriptionManager(
                     .setProductDetailsParamsList(productDetailsParamsList)
                     .build()
                 
-                billingClient?.launchBillingFlow(activity, billingFlowParams)
+                Log.d("SubscriptionManager", "결제 화면 실행")
+                val launchResult = billingClient?.launchBillingFlow(activity, billingFlowParams)
+                Log.d("SubscriptionManager", "결제 화면 실행 결과: ${launchResult?.responseCode}")
+            } else {
+                Log.e("SubscriptionManager", "제품 정보 조회 실패: ${billingResult.debugMessage}")
+                _subscriptionState.value = SubscriptionState.Error("구독 상품을 불러올 수 없습니다: ${billingResult.debugMessage}")
             }
         }
     }

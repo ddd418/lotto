@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
-        android:name=".LottoApplication"
+        android:name="com.lotto.app.LottoApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -19,13 +19,8 @@
             android:name="com.kakao.sdk.AppKey"
             android:value="6b46608ffd2d4f1d912db2ac6c7e9802" />
         
-        <!-- AdMob App ID (실제 프로덕션 ID) -->
-        <meta-data
-            android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-9417535388801609~5355016064" />
-        
         <activity
-            android:name=".MainActivity"
+            android:name="com.lotto.app.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.LottoApp">
             <intent-filter>

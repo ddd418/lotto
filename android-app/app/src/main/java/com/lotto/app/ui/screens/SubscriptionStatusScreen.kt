@@ -440,7 +440,7 @@ private fun PlanComparisonCard(
             ComparisonRow("번호 추천 알고리즘", true, true)
             ComparisonRow("고급 분석 리포트", true, true)
             ComparisonRow("내 번호 저장 기능", true, true)
-            ComparisonRow("광고 제거", false, true)
+            ComparisonRow("프리미엄 환경", false, true)
             ComparisonRow("무료 사용 기간", "1개월", "제한 없음")
             ComparisonRow("월 구독료", "무료", "₩1,000")
             

@@ -8,14 +8,14 @@ plugins {
 
 android {
     namespace 'com.lotto.app'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
-        applicationId "com.lotto.app"
+        applicationId "com.lottoresearch.pro"
         minSdk 24
-        targetSdk 34
-        versionCode 1
-        versionName "1.0.0"
+        targetSdk 35
+        versionCode 19
+        versionName "1.1.6"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -34,8 +34,8 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled true
-            shrinkResources true
+            minifyEnabled false
+            shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
         }
@@ -110,9 +110,6 @@ dependencies {
     
     // Google Play Billing (구독 결제)
     implementation 'com.android.billingclient:billing-ktx:6.1.0'
-    
-    // AdMob (광고)
-    implementation 'com.google.android.gms:play-services-ads:22.6.0'
     
     // DataStore (설정 저장)
     implementation 'androidx.datastore:datastore-preferences:1.0.0'

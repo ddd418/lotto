@@ -91,7 +91,7 @@ fun PlanSelectionScreen(
                     "번호 추천 알고리즘" to true,
                     "고급 분석 리포트" to true,
                     "내 번호 저장 기능" to true,
-                    "광고 제거" to false
+                    "프리미엄 환경" to false
                 ),
                 isSelected = selectedPlan == "free",
                 isPremium = false,
@@ -107,7 +107,7 @@ fun PlanSelectionScreen(
                     "번호 추천 알고리즘" to true,
                     "고급 분석 리포트" to true,
                     "내 번호 저장 기능" to true,
-                    "광고 없음" to true,
+                    "프리미엄 환경" to true,
                     "언제든지 취소 가능" to true
                 ),
                 isSelected = selectedPlan == "pro",

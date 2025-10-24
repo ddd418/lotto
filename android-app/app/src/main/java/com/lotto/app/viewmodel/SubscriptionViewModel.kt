@@ -2,6 +2,7 @@ package com.lotto.app.viewmodel
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lotto.app.billing.SubscriptionManager
@@ -46,6 +47,10 @@ class SubscriptionViewModel(
     private val _subscriptionStatus = MutableStateFlow(SubscriptionStatus())
     val subscriptionStatus: StateFlow<SubscriptionStatus> = _subscriptionStatus.asStateFlow()
     
+    // 에러 메시지
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+    
     init {
         initializeSubscription()
         syncWithServer()
@@ -56,11 +61,23 @@ class SubscriptionViewModel(
      * 구독 시스템 초기화
      */
     private fun initializeSubscription() {
+        Log.d("SubscriptionViewModel", "initializeSubscription 시작")
         subscriptionManager.initialize()
         
         viewModelScope.launch {
             subscriptionManager.isProUser.collect {
+                Log.d("SubscriptionViewModel", "isProUser 변경: $it")
                 updateAccessStatus()
+            }
+        }
+        
+        // 에러 상태 모니터링
+        viewModelScope.launch {
+            subscriptionManager.subscriptionState.collect { state ->
+                Log.d("SubscriptionViewModel", "구독 상태: $state")
+                if (state is com.lotto.app.billing.SubscriptionState.Error) {
+                    _errorMessage.value = state.message
+                }
             }
         }
     }
@@ -69,27 +86,58 @@ class SubscriptionViewModel(
      * 서버와 동기화 (public - 로그인 시 호출)
      */
     fun syncWithServer() {
+        Log.d("SubscriptionViewModel", "🔄 syncWithServer 시작")
         viewModelScope.launch {
             try {
                 val response = subscriptionApi.getSubscriptionStatus()
+                Log.d("SubscriptionViewModel", "서버 응답: ${response.code()}")
+                
                 if (response.isSuccessful) {
                     val status = response.body()
                     status?.let {
+                        Log.d("SubscriptionViewModel", """
+                            📡 서버 구독 상태:
+                            - isPro: ${it.isPro}
+                            - trialActive: ${it.trialActive}
+                            - trialDaysRemaining: ${it.trialDaysRemaining}
+                            - hasAccess: ${it.hasAccess}
+                        """.trimIndent())
+                        
+                        // subscriptionStatus 업데이트
+                        _subscriptionStatus.value = SubscriptionStatus(
+                            isPro = it.isPro,
+                            trialActive = it.trialActive,
+                            trialDaysRemaining = it.trialDaysRemaining,
+                            subscriptionPlan = it.subscriptionPlan,
+                            hasAccess = it.hasAccess,
+                            trialStartDate = it.trialStartDate,
+                            trialEndDate = it.trialEndDate,
+                            subscriptionEndDate = it.subscriptionEndDate,
+                            autoRenew = it.autoRenew,
+                            isTrialUsed = it.trialActive || it.trialDaysRemaining >= 0
+                        )
+                        
+                        // hasAccess 즉시 업데이트
+                        _hasAccess.value = it.hasAccess
+                        
                         _trialInfo.value = TrialInfo(
                             isStarted = it.trialActive || it.trialDaysRemaining >= 0,
                             isActive = it.trialActive,
                             remainingDays = it.trialDaysRemaining.toLong()
                         )
-                        updateAccessStatus()
                         
                         // 체험 종료 임박 알림 체크
                         checkTrialWarning(it.trialActive, it.trialDaysRemaining)
+                        
+                        Log.d("SubscriptionViewModel", "✅ syncWithServer 완료 - hasAccess: ${_hasAccess.value}")
                     }
                 } else {
+                    Log.e("SubscriptionViewModel", "❌ 서버 오류: ${response.code()}")
                     // 서버 오류 시 로컬 데이터 사용
                     updateTrialInfo()
                 }
             } catch (e: Exception) {
+                Log.e("SubscriptionViewModel", "❌ 네트워크 오류: ${e.message}")
                 // 네트워크 오류 시 로컬 데이터 사용
                 updateTrialInfo()
             }
@@ -175,7 +223,16 @@ class SubscriptionViewModel(
      * 구독 결제 시작
      */
     fun startSubscription(activity: Activity) {
+        Log.d("SubscriptionViewModel", "startSubscription 호출됨")
+        _errorMessage.value = null  // 이전 에러 메시지 초기화
         subscriptionManager.launchSubscriptionFlow(activity)
+    }
+    
+    /**
+     * 에러 메시지 초기화
+     */
+    fun clearError() {
+        _errorMessage.value = null
     }
     
     /**
@@ -239,11 +296,19 @@ class SubscriptionViewModel(
      * 접근 권한 업데이트
      */
     private fun updateAccessStatus() {
-        _hasAccess.value = isProUser.value || trialInfo.value.isActive
+        val newAccess = isProUser.value || trialInfo.value.isActive
+        Log.d("SubscriptionViewModel", """
+            🔐 접근 권한 업데이트:
+            - isProUser: ${isProUser.value}
+            - trialActive: ${trialInfo.value.isActive}
+            - 이전 hasAccess: ${_hasAccess.value}
+            - 새로운 hasAccess: $newAccess
+        """.trimIndent())
+        _hasAccess.value = newAccess
     }
     
     /**
-     * 오늘 사용 가능 여부 (광고 시청 옵션 포함)
+     * 오늘 사용 가능 여부
      */
     fun canUseToday(): Boolean {
         return hasAccess.value

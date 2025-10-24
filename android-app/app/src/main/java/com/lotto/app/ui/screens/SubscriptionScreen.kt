@@ -37,6 +37,35 @@ fun SubscriptionScreen(
     val isProUser by viewModel.isProUser.collectAsStateWithLifecycle()
     val trialInfo by viewModel.trialInfo.collectAsStateWithLifecycle()
     val subscriptionStatus by viewModel.subscriptionStatus.collectAsStateWithLifecycle()
+    val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    
+    // 에러 다이얼로그 표시
+    var showErrorDialog by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
+            showErrorDialog = true
+        }
+    }
+    
+    if (showErrorDialog && errorMessage != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showErrorDialog = false
+                viewModel.clearError()
+            },
+            title = { Text("구독 오류") },
+            text = { Text(errorMessage ?: "알 수 없는 오류가 발생했습니다") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showErrorDialog = false
+                    viewModel.clearError()
+                }) {
+                    Text("확인")
+                }
+            }
+        )
+    }
     
     // 화면 진입 시 구독 상태 새로고침
     LaunchedEffect(Unit) {
@@ -61,19 +90,15 @@ fun SubscriptionScreen(
         }
     }
     
-    // 체험 만료 여부 체크 (실제로 0일 이하일 때만)
-    // trialDaysRemaining == -1 은 아직 로드되지 않은 상태
-    val isTrialExpired = subscriptionStatus.trialDaysRemaining != -1 && // 데이터 로드됨 (초기값 아님)
-                         subscriptionStatus.trialDaysRemaining <= 0 &&  // 실제 만료 (0 이하, 음수 포함)
-                         !subscriptionStatus.trialActive && 
-                         !subscriptionStatus.isPro
+    // 접근 권한 체크 - hasAccess가 false면 뒤로가기 완전 차단
+    val hasAccess = subscriptionStatus.hasAccess
     
-    android.util.Log.d("SubscriptionScreen", "❗ isTrialExpired = $isTrialExpired (days=${subscriptionStatus.trialDaysRemaining})")
+    android.util.Log.d("SubscriptionScreen", "❗ hasAccess = $hasAccess (trialActive=${subscriptionStatus.trialActive}, isPro=${subscriptionStatus.isPro})")
     
-    // 체험 만료 시 시스템 백 버튼 차단
-    BackHandler(enabled = isTrialExpired) {
-        // 만료된 경우 뒤로가기 차단 (아무 동작 안 함)
-        android.util.Log.d("SubscriptionScreen", "⛔ 체험 만료 - 뒤로가기 차단됨")
+    // 접근 권한 없으면 시스템 백 버튼 차단
+    BackHandler(enabled = !hasAccess) {
+        // 권한 없으면 뒤로가기 차단 (아무 동작 안 함)
+        android.util.Log.d("SubscriptionScreen", "⛔ 접근 권한 없음 - 뒤로가기 차단됨")
     }
     
     Scaffold(
@@ -81,8 +106,8 @@ fun SubscriptionScreen(
             TopAppBar(
                 title = { Text("PRO 구독") },
                 navigationIcon = {
-                    // 체험 만료 시에는 뒤로가기 버튼 숨김
-                    if (!isTrialExpired) {
+                    // 접근 권한 없으면 뒤로가기 버튼 숨김
+                    if (hasAccess) {
                         IconButton(onClick = onNavigateBack) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "뒤로 가기")
                         }
@@ -120,7 +145,7 @@ fun SubscriptionScreen(
                 Spacer(modifier = Modifier.height(20.dp))
                 
                 // ⚠️ 체험 만료 긴급 메시지
-                if (isTrialExpired) {
+                if (!hasAccess) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
@@ -222,8 +247,8 @@ fun SubscriptionScreen(
                         )
                         
                         ProFeatureItem(
-                            icon = "🚫",
-                            title = "광고 제거",
+                            icon = "✨",
+                            title = "프리미엄 환경",
                             description = "깔끔한 환경에서 앱 사용"
                         )
                         
@@ -303,7 +328,7 @@ fun SubscriptionScreen(
                         .fillMaxWidth()
                         .height(60.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isTrialExpired) {
+                        containerColor = if (!hasAccess) {
                             Color(0xFFEF4444)  // 만료 시 빨간색 강조
                         } else {
                             Color(0xFFFFE812)
@@ -316,7 +341,7 @@ fun SubscriptionScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     ) {
-                        if (isTrialExpired) {
+                        if (!hasAccess) {
                             Text(
                                 text = "🚀 ",
                                 fontSize = 20.sp
@@ -324,13 +349,13 @@ fun SubscriptionScreen(
                         }
                         Text(
                             text = when {
-                                isTrialExpired -> "지금 바로 구독하기"
+                                !hasAccess -> "지금 바로 구독하기"
                                 trialInfo.isActive -> "지금 PRO로 업그레이드"
                                 else -> "PRO 구독 시작하기"
                             },
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isTrialExpired) Color.White else Color(0xFF1E3A8A)
+                            color = if (!hasAccess) Color.White else Color(0xFF1E3A8A)
                         )
                     }
                 }

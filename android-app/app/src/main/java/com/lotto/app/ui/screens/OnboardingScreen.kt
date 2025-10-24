@@ -164,7 +164,7 @@ fun OnboardingScreen(
                 shape = RoundedCornerShape(28.dp)
             ) {
                 Text(
-                    text = "PRO로 바로 시작 (광고 없음)",
+                    text = "PRO로 바로 시작하기",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold
                 )
