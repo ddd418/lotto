@@ -97,9 +97,12 @@ class SubscriptionViewModel(
                             autoRenew = it.autoRenew
                         )
                         
+                        // 🔥 중요: 서버의 isPro 상태로 SubscriptionManager 업데이트
+                        subscriptionManager.updateProStatusFromServer(it.isPro)
+                        
                         _hasAccess.value = true  // 항상 true
                         
-                        Log.d("SubscriptionViewModel", "✅ syncWithServer 완료")
+                        Log.d("SubscriptionViewModel", "✅ syncWithServer 완료 - Pro 상태: ${it.isPro}")
                     }
                 } else {
                     Log.e("SubscriptionViewModel", "❌ 서버 오류: ${response.code()}")
@@ -149,7 +152,13 @@ class SubscriptionViewModel(
                             subscriptionEndDate = status.subscriptionEndDate,
                             autoRenew = status.autoRenew
                         )
+                        
+                        // 🔥 중요: 서버의 isPro 상태로 SubscriptionManager 업데이트
+                        subscriptionManager.updateProStatusFromServer(status.isPro)
+                        
                         _hasAccess.value = true
+                        
+                        Log.d("SubscriptionViewModel", "✅ refreshStatus 완료 - Pro 상태: ${status.isPro}")
                     }
                 }
             } catch (e: Exception) {

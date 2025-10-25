@@ -10,9 +10,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 데이터베이스 URL 설정
+# Railway private network 우선 사용 (egress 비용 절감)
 DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "sqlite:///./lotto_app.db"  # 개발용 SQLite
+    "DATABASE_PRIVATE_URL",  # Railway private network (우선)
+    os.getenv(
+        "DATABASE_URL",  # 기본 DATABASE_URL
+        "sqlite:///./lotto_app.db"  # 개발용 SQLite
+    )
 )
 
 # SQLite인 경우 connect_args 추가

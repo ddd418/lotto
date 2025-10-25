@@ -234,6 +234,14 @@ class SubscriptionManager(
     }
     
     /**
+     * 서버 상태로 Pro 여부 업데이트 (서버 동기화용)
+     */
+    fun updateProStatusFromServer(isPro: Boolean) {
+        Log.d("SubscriptionManager", "🔄 서버에서 Pro 상태 업데이트: $isPro")
+        _isProUser.value = isPro
+    }
+    
+    /**
      * 리소스 정리
      */
     fun destroy() {
