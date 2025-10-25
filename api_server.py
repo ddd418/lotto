@@ -407,6 +407,18 @@ async def kakao_login(
             user_settings = UserSettings(user_id=user.id)
             db.add(user_settings)
             db.commit()
+            
+            # 기본 FREE 구독 플랜 생성
+            print(f"📦 FREE 플랜 생성 중...")
+            user_subscription = UserSubscription(
+                user_id=user.id,
+                is_pro_subscriber=False,
+                subscription_plan="free",
+                auto_renew=False
+            )
+            db.add(user_subscription)
+            db.commit()
+            print(f"✅ FREE 플랜 생성 완료")
         else:
             # 기존 사용자 정보 업데이트
             print(f"♻️ 기존 사용자 업데이트 중 (ID={user.id})...")
