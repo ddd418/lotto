@@ -240,7 +240,7 @@ async def get_subscription_status(
     
     # 체험 기간 계산
     trial_days_remaining = calculate_trial_days_remaining(subscription)
-    trial_active = trial_days_remaining > 0 and subscription.is_trial_used
+    trial_active = trial_days_remaining > 0  # 남은 기간이 있으면 활성
     
     return SubscriptionStatusResponse(
         is_pro=subscription.is_pro_subscriber,
