@@ -39,15 +39,18 @@ fun RecommendScreen(
     viewModel: LottoViewModel,
     savedNumberViewModel: com.lotto.app.viewmodel.SavedNumberViewModel,
     subscriptionViewModel: com.lotto.app.viewmodel.SubscriptionViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToSubscription: () -> Unit
 ) {
     val recommendState by viewModel.recommendState.collectAsStateWithLifecycle()
     val isLoading by savedNumberViewModel.isLoading.collectAsStateWithLifecycle()
     val successMessage by savedNumberViewModel.successMessage.collectAsStateWithLifecycle()
     val error by savedNumberViewModel.error.collectAsStateWithLifecycle()
+    val isProUser by subscriptionViewModel.isProUser.collectAsStateWithLifecycle()
     
     var numberOfSets by remember { mutableIntStateOf(5) }
     var selectedMode by remember { mutableStateOf("ai") }
+    var showProRequiredDialog by remember { mutableStateOf(false) }
     
     // 화면 진입 시 자동으로 번호 추천
     LaunchedEffect(Unit) {
@@ -195,16 +198,23 @@ fun RecommendScreen(
                                 
                                 // 세트별 저장 버튼
                                 OutlinedButton(
-                                    onClick = { showSaveDialog = lottoSet.numbers },
+                                    onClick = {
+                                        if (isProUser) {
+                                            showSaveDialog = lottoSet.numbers
+                                        } else {
+                                            // Pro 아니면 구독 유도 다이얼로그
+                                            showProRequiredDialog = true
+                                        }
+                                    },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Add,
+                                        imageVector = if (isProUser) Icons.Default.Add else Icons.Default.Lock,
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("이 번호 저장하기")
+                                    Text(if (isProUser) "이 번호 저장하기" else "저장하기 (PRO 전용)")
                                 }
                             }
                         }
@@ -322,6 +332,52 @@ fun RecommendScreen(
                                     memoText = ""
                                 }) {
                                     Text("취소")
+                                }
+                            }
+                        )
+                    }
+                    
+                    // Pro 구독 유도 다이얼로그
+                    if (showProRequiredDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showProRequiredDialog = false },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            title = { Text("PRO 전용 기능") },
+                            text = {
+                                Column {
+                                    Text("번호 저장은 PRO 구독자만 사용할 수 있습니다.")
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        "월 500원으로 다음 기능을 이용하세요:",
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("• 번호 저장 및 관리")
+                                    Text("• 당첨 확인")
+                                    Text("• 가상 추첨")
+                                    Text("• 고급 패턴 분석")
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        showProRequiredDialog = false
+                                        // 구독 관리 페이지로 이동
+                                        onNavigateToSubscription()
+                                    }
+                                ) {
+                                    Text("PRO 구독하기")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showProRequiredDialog = false }) {
+                                    Text("닫기")
                                 }
                             }
                         )

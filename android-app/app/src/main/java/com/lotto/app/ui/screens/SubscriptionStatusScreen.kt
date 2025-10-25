@@ -70,8 +70,6 @@ fun SubscriptionStatusScreen(
             // 현재 상태 카드
             StatusCard(
                 isPro = status.isPro,
-                trialActive = status.trialActive,
-                trialDaysRemaining = status.trialDaysRemaining,
                 subscriptionEndDate = status.subscriptionEndDate
             )
             
@@ -80,19 +78,6 @@ fun SubscriptionStatusScreen(
                 isPro = status.isPro,
                 onUpgrade = onNavigateToSubscription
             )
-            
-            // 기능 접근 상태
-            AccessStatusCard(hasAccess = status.hasAccess)
-            
-            // 체험 정보 (PRO 구독자가 아닐 때만 표시)
-            if (!status.isPro && (status.trialActive || status.isTrialUsed)) {
-                TrialInfoCard(
-                    trialActive = status.trialActive,
-                    trialDaysRemaining = status.trialDaysRemaining,
-                    trialStartDate = status.trialStartDate,
-                    trialEndDate = status.trialEndDate
-                )
-            }
             
             // 구독 정보 (PRO 구독자인 경우)
             if (status.isPro) {
@@ -111,18 +96,16 @@ fun SubscriptionStatusScreen(
 @Composable
 private fun StatusCard(
     isPro: Boolean,
-    trialActive: Boolean,
-    trialDaysRemaining: Int,
     subscriptionEndDate: String?
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = when {
-                isPro -> Color(0xFF6366F1).copy(alpha = 0.1f)
-                trialActive -> Color(0xFF10B981).copy(alpha = 0.1f)
-                else -> Color(0xFFEF4444).copy(alpha = 0.1f)  // 체험 종료된 무료 플랜
+            containerColor = if (isPro) {
+                Color(0xFF6366F1).copy(alpha = 0.1f)
+            } else {
+                Color(0xFF10B981).copy(alpha = 0.1f)
             }
         )
     ) {
@@ -135,27 +118,19 @@ private fun StatusCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = when {
-                        isPro -> "✨"
-                        trialActive -> "🎁"
-                        else -> "⏰"  // 체험 종료
-                    },
+                    text = if (isPro) "✨" else "🎁",
                     fontSize = 32.sp
                 )
                 
                 Column {
                     Text(
-                        text = when {
-                            isPro -> "PRO 구독 중"
-                            trialActive -> "무료 체험 중 (${trialDaysRemaining}일 남음)"
-                            else -> "무료 체험 종료"
-                        },
+                        text = if (isPro) "PRO 구독 중" else "FREE 플랜",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = when {
-                            isPro -> Color(0xFF6366F1)
-                            trialActive -> Color(0xFF10B981)
-                            else -> Color(0xFFEF4444)
+                        color = if (isPro) {
+                            Color(0xFF6366F1)
+                        } else {
+                            Color(0xFF10B981)
                         }
                     )
                     
@@ -164,114 +139,11 @@ private fun StatusCard(
                             isPro -> subscriptionEndDate?.let { 
                                 "다음 결제일: ${formatDate(it)}"
                             } ?: "구독 정보 로딩 중..."
-                            trialActive -> "체험 기간이 끝나면 프로 기능이 제한됩니다"
-                            else -> "프로 플랜 구독 후 모든 기능을 이용하세요"
+                            else -> "추천 및 통계를 무제한으로 이용할 수 있습니다"
                         },
                         fontSize = 13.sp,
                         color = NotionColors.TextSecondary
                     )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AccessStatusCard(hasAccess: Boolean) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = NotionColors.Surface
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "기능 접근 권한",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = NotionColors.TextPrimary
-            )
-            
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = if (hasAccess) "✅" else "❌",
-                    fontSize = 24.sp
-                )
-                Text(
-                    text = if (hasAccess) {
-                        "모든 프리미엄 기능을 사용할 수 있습니다"
-                    } else {
-                        "프리미엄 기능이 제한됩니다"
-                    },
-                    fontSize = 14.sp,
-                    color = NotionColors.TextSecondary
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TrialInfoCard(
-    trialActive: Boolean,
-    trialDaysRemaining: Int,
-    trialStartDate: String?,
-    trialEndDate: String?
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = NotionColors.Surface
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "🎁 무료 체험 정보",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = NotionColors.TextPrimary
-            )
-            
-            if (trialActive) {
-                InfoRow("상태", "체험 중")
-                InfoRow("남은 기간", "${trialDaysRemaining}일")
-                trialEndDate?.let {
-                    InfoRow("종료일", formatDate(it))
-                }
-                
-                if (trialDaysRemaining <= 3) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "⚠️ 체험 기간이 곧 종료됩니다. PRO 구독을 고려해보세요!",
-                        fontSize = 13.sp,
-                        color = Color(0xFFFF9800),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                Color(0xFFFF9800).copy(alpha = 0.1f),
-                                RoundedCornerShape(8.dp)
-                            )
-                            .padding(12.dp)
-                    )
-                }
-            } else {
-                InfoRow("상태", "체험 종료")
-                trialStartDate?.let {
-                    InfoRow("시작일", formatDate(it))
-                }
-                trialEndDate?.let {
-                    InfoRow("종료일", formatDate(it))
                 }
             }
         }
@@ -304,7 +176,7 @@ private fun SubscriptionInfoCard(
                 color = NotionColors.TextPrimary
             )
             
-            InfoRow("플랜", "PRO (₩1,000/월)")
+            InfoRow("플랜", "PRO (₩500/월)")
             subscriptionEndDate?.let {
                 InfoRow("다음 결제일", formatDate(it))
             }
@@ -438,11 +310,12 @@ private fun PlanComparisonCard(
             
             // 기능 비교 행들
             ComparisonRow("번호 추천 알고리즘", true, true)
-            ComparisonRow("고급 분석 리포트", true, true)
-            ComparisonRow("내 번호 저장 기능", true, true)
-            ComparisonRow("프리미엄 환경", false, true)
-            ComparisonRow("무료 사용 기간", "1개월", "제한 없음")
-            ComparisonRow("월 구독료", "무료", "₩1,000")
+            ComparisonRow("통계 분석", true, true)
+            ComparisonRow("내 번호 저장 기능", false, true)
+            ComparisonRow("당첨 확인", false, true)
+            ComparisonRow("가상 추첨", false, true)
+            ComparisonRow("고급 패턴 분석", false, true)
+            ComparisonRow("월 구독료", "무료", "₩500")
             
             Divider(color = NotionColors.Border)
             

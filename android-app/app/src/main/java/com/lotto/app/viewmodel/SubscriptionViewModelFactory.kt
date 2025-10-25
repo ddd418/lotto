@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.lotto.app.billing.SubscriptionManager
-import com.lotto.app.data.local.TrialManager
 
 /**
  * SubscriptionViewModel Factory
@@ -17,8 +16,7 @@ class SubscriptionViewModelFactory(
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SubscriptionViewModel::class.java)) {
             val subscriptionManager = SubscriptionManager(context)
-            val trialManager = TrialManager(context)
-            return SubscriptionViewModel(subscriptionManager, trialManager, context) as T
+            return SubscriptionViewModel(subscriptionManager, context) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

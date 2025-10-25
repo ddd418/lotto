@@ -189,55 +189,8 @@ fun LottoApp(
     
     val isLoggedIn by authViewModel.isLoggedIn.collectAsStateWithLifecycle()
     
-    // 체험 종료 임박 알림
-    val shouldShowTrialWarning by subscriptionViewModel.shouldShowTrialWarning.collectAsStateWithLifecycle()
-    val trialWarningDays by subscriptionViewModel.trialWarningDays.collectAsStateWithLifecycle()
-    
-    // 구독 상태 (체험 만료 체크용)
+    // 구독 상태
     val subscriptionStatus by subscriptionViewModel.subscriptionStatus.collectAsStateWithLifecycle()
-    
-    // 알림 다이얼로그 표시
-    if (shouldShowTrialWarning && trialWarningDays > 0) {
-        com.lotto.app.ui.components.TrialExpirationDialog(
-            daysRemaining = trialWarningDays,
-            onDismiss = {
-                subscriptionViewModel.dismissTrialWarning()
-            },
-            onUpgrade = {
-                subscriptionViewModel.dismissTrialWarning()
-                navController.navigate(Screen.Subscription.route)
-            }
-        )
-    }
-    
-    // 체험 만료 시 강제 리다이렉트 (PRO 구독하지 않은 경우)
-    LaunchedEffect(subscriptionStatus) {  // subscriptionStatus 전체를 key로 사용
-        val currentRoute = navController.currentBackStackEntry?.destination?.route
-        
-        android.util.Log.d("MainActivity", """
-            🔍 만료 체크:
-            - isLoggedIn: $isLoggedIn
-            - currentRoute: $currentRoute
-            - trialDaysRemaining: ${subscriptionStatus.trialDaysRemaining}
-            - trialActive: ${subscriptionStatus.trialActive}
-            - isPro: ${subscriptionStatus.isPro}
-            - hasAccess: ${subscriptionStatus.hasAccess}
-        """.trimIndent())
-        
-        // hasAccess가 false면 즉시 차단 (서버가 판단한 접근 권한)
-        if (isLoggedIn && 
-            !subscriptionStatus.hasAccess &&  // 서버가 접근 권한 없음으로 판단
-            subscriptionStatus.trialDaysRemaining != -1 &&  // 데이터 로드됨
-            currentRoute != Screen.Subscription.route &&
-            currentRoute != Screen.Login.route &&
-            currentRoute != Screen.PlanSelection.route
-        ) {
-            android.util.Log.d("MainActivity", "🚨 접근 권한 없음 (hasAccess=false) → 구독 화면으로 강제 이동")
-            navController.navigate(Screen.Subscription.route) {
-                popUpTo(0) { inclusive = true }
-            }
-        }
-    }
     
     // 로그인 상태에 따라 시작 화면 결정
     val startDestination = if (isLoggedIn) Screen.Main.route else Screen.Login.route
@@ -276,38 +229,11 @@ fun LottoApp(
                 viewModel = authViewModel,
                 subscriptionViewModel = subscriptionViewModel,
                 onLoginSuccess = { isNewUser ->
-                    if (isNewUser) {
-                        // 신규 가입자는 플랜 선택 화면으로
-                        navController.navigate(Screen.PlanSelection.route) {
-                            popUpTo(Screen.Login.route) { inclusive = true }
-                        }
-                    } else {
-                        // 기존 사용자는 메인 화면으로
-                        navController.navigate(Screen.Main.route) {
-                            popUpTo(Screen.Login.route) { inclusive = true }
-                        }
+                    // 신규 가입자도 기존 사용자도 모두 무료로 시작
+                    navController.navigate(Screen.Main.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 }
-            )
-        }
-        
-        // 플랜 선택 화면 (첫 가입자용)
-        composable(Screen.PlanSelection.route) {
-            PlanSelectionScreen(
-                onFreePlanSelected = {
-                    // 무료 플랜 선택 - 트라이얼 시작
-                    subscriptionViewModel.startTrial()
-                    navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.PlanSelection.route) { inclusive = true }
-                    }
-                },
-                onProPlanSelected = {
-                    // 프로 플랜 선택 - 바로 결제 시작
-                    subscriptionViewModel.startSubscription(context as Activity)
-                    // 결제 완료되면 자동으로 Main으로 이동 (SubscriptionViewModel에서 처리)
-                },
-                subscriptionViewModel = subscriptionViewModel,
-                activity = context as Activity
             )
         }
         
@@ -336,6 +262,9 @@ fun LottoApp(
                 },
                 onNavigateToVirtualDraw = {
                     navController.navigate(Screen.VirtualDraw.route)
+                },
+                onNavigateToSubscription = {
+                    navController.navigate(Screen.SubscriptionStatus.route)
                 }
             )
         }
@@ -350,6 +279,9 @@ fun LottoApp(
                 subscriptionViewModel = subscriptionViewModel,
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToSubscription = {
+                    navController.navigate(Screen.SubscriptionStatus.route)
                 }
             )
         }

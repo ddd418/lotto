@@ -102,7 +102,7 @@ fun PlanSelectionScreen(
             PlanCard(
                 title = "프로 플랜",
                 subtitle = "자동 갱신 구독",
-                price = "₩1,000/월",
+                price = "₩500/월",
                 features = listOf(
                     "번호 추천 알고리즘" to true,
                     "고급 분석 리포트" to true,
@@ -141,7 +141,7 @@ fun PlanSelectionScreen(
                 Text(
                     text = when (selectedPlan) {
                         "free" -> "30일 무료로 시작하기"
-                        "pro" -> "₩1,000/월 구독하기"
+                        "pro" -> "₩500/월 구독하기"
                         else -> "플랜을 선택해주세요"
                     },
                     fontSize = 16.sp,

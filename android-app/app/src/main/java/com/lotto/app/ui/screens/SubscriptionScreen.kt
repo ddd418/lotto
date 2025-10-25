@@ -35,7 +35,6 @@ fun SubscriptionScreen(
 ) {
     val context = LocalContext.current
     val isProUser by viewModel.isProUser.collectAsStateWithLifecycle()
-    val trialInfo by viewModel.trialInfo.collectAsStateWithLifecycle()
     val subscriptionStatus by viewModel.subscriptionStatus.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     
@@ -72,17 +71,6 @@ fun SubscriptionScreen(
         viewModel.refreshStatus()
     }
     
-    // 디버깅: 구독 상태 로그
-    LaunchedEffect(subscriptionStatus) {
-        android.util.Log.d("SubscriptionScreen", """
-            📊 구독 상태:
-            - trialActive: ${subscriptionStatus.trialActive}
-            - trialDaysRemaining: ${subscriptionStatus.trialDaysRemaining}
-            - isPro: ${subscriptionStatus.isPro}
-            - subscriptionPlan: ${subscriptionStatus.subscriptionPlan}
-        """.trimIndent())
-    }
-    
     // 이미 구독 중이면 자동으로 돌아가기
     LaunchedEffect(isProUser) {
         if (isProUser) {
@@ -90,27 +78,13 @@ fun SubscriptionScreen(
         }
     }
     
-    // 접근 권한 체크 - hasAccess가 false면 뒤로가기 완전 차단
-    val hasAccess = subscriptionStatus.hasAccess
-    
-    android.util.Log.d("SubscriptionScreen", "❗ hasAccess = $hasAccess (trialActive=${subscriptionStatus.trialActive}, isPro=${subscriptionStatus.isPro})")
-    
-    // 접근 권한 없으면 시스템 백 버튼 차단
-    BackHandler(enabled = !hasAccess) {
-        // 권한 없으면 뒤로가기 차단 (아무 동작 안 함)
-        android.util.Log.d("SubscriptionScreen", "⛔ 접근 권한 없음 - 뒤로가기 차단됨")
-    }
-    
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("PRO 구독") },
                 navigationIcon = {
-                    // 접근 권한 없으면 뒤로가기 버튼 숨김
-                    if (hasAccess) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "뒤로 가기")
-                        }
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "뒤로 가기")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -144,88 +118,12 @@ fun SubscriptionScreen(
             ) {
                 Spacer(modifier = Modifier.height(20.dp))
                 
-                // ⚠️ 체험 만료 긴급 메시지
-                if (!hasAccess) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFEF4444).copy(alpha = 0.95f)
-                        ),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "🚨",
-                                fontSize = 48.sp
-                            )
-                            Text(
-                                text = "무료 체험이 종료되었습니다",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                textAlign = TextAlign.Center
-                            )
-                            Text(
-                                text = "지금 구독하고 계속 이용하세요!",
-                                fontSize = 14.sp,
-                                color = Color.White.copy(alpha = 0.9f),
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-                
-                // 타이틀
-                Text(
-                    text = "로또연구소",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                
                 Text(
                     text = "PRO",
                     fontSize = 48.sp,
                     fontWeight = FontWeight.Black,
                     color = Color(0xFFFFE812)
                 )
-                
-                // 체험 기간 정보 (체험 중일 때만 - N일 남음)
-                if (subscriptionStatus.trialActive && subscriptionStatus.trialDaysRemaining > 0) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFFFE812).copy(alpha = 0.9f)
-                        ),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "⏰ 무료 체험 남은 기간",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF1E3A8A)
-                            )
-                            Text(
-                                text = "${subscriptionStatus.trialDaysRemaining}일",
-                                fontSize = 36.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1E3A8A)
-                            )
-                        }
-                    }
-                }
                 
                 // PRO 기능 안내
                 Card(
@@ -247,33 +145,27 @@ fun SubscriptionScreen(
                         )
                         
                         ProFeatureItem(
-                            icon = "✨",
-                            title = "프리미엄 환경",
-                            description = "깔끔한 환경에서 앱 사용"
+                            icon = "💾",
+                            title = "번호 저장",
+                            description = "내 번호를 저장하고 관리"
                         )
                         
                         ProFeatureItem(
-                            icon = "♾️",
-                            title = "무제한 추천",
-                            description = "하루에 원하는 만큼 번호 추천"
+                            icon = "✅",
+                            title = "당첨 확인",
+                            description = "저장한 번호 자동 당첨 확인"
                         )
                         
                         ProFeatureItem(
-                            icon = "☁️",
-                            title = "클라우드 백업",
-                            description = "저장한 번호 자동 백업"
+                            icon = "🎲",
+                            title = "가상 추첨",
+                            description = "재미있는 추첨 시뮬레이션"
                         )
                         
                         ProFeatureItem(
                             icon = "📊",
-                            title = "상세 분석",
-                            description = "심화 통계 및 확률 분석"
-                        )
-                        
-                        ProFeatureItem(
-                            icon = "🎨",
-                            title = "커스텀 테마",
-                            description = "다양한 테마 선택 가능"
+                            title = "고급 분석",
+                            description = "심화 패턴 및 확률 분석"
                         )
                         
                         Divider(modifier = Modifier.padding(vertical = 8.dp))
@@ -291,7 +183,7 @@ fun SubscriptionScreen(
                                     color = Color(0xFF64748B)
                                 )
                                 Text(
-                                    text = "₩1,000",
+                                    text = "₩500",
                                     fontSize = 28.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF1E3A8A)
@@ -317,7 +209,7 @@ fun SubscriptionScreen(
                     }
                 }
                 
-                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 // 구독 버튼
                 Button(
@@ -328,11 +220,7 @@ fun SubscriptionScreen(
                         .fillMaxWidth()
                         .height(60.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (!hasAccess) {
-                            Color(0xFFEF4444)  // 만료 시 빨간색 강조
-                        } else {
-                            Color(0xFFFFE812)
-                        }
+                        containerColor = Color(0xFFFFE812)
                     ),
                     shape = RoundedCornerShape(30.dp)
                 ) {
@@ -341,21 +229,11 @@ fun SubscriptionScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     ) {
-                        if (!hasAccess) {
-                            Text(
-                                text = "🚀 ",
-                                fontSize = 20.sp
-                            )
-                        }
                         Text(
-                            text = when {
-                                !hasAccess -> "지금 바로 구독하기"
-                                trialInfo.isActive -> "지금 PRO로 업그레이드"
-                                else -> "PRO 구독 시작하기"
-                            },
+                            text = "PRO 구독 시작하기",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (!hasAccess) Color.White else Color(0xFF1E3A8A)
+                            color = Color(0xFF1E3A8A)
                         )
                     }
                 }

@@ -140,7 +140,7 @@ fun OnboardingScreen(
                         color = Color(0xFF1E3A8A)
                     )
                     Text(
-                        text = "이후 월 1,000원",
+                        text = "이후 월 500원",
                         fontSize = 12.sp,
                         color = Color(0xFF1E3A8A).copy(alpha = 0.7f)
                     )

@@ -36,68 +36,14 @@ fun MainScreen(
     onNavigateToCheckWinning: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAnalysis: () -> Unit,
-    onNavigateToVirtualDraw: () -> Unit
+    onNavigateToVirtualDraw: () -> Unit,
+    onNavigateToSubscription: () -> Unit
 ) {
     val latestDrawState by viewModel.latestDrawState.collectAsStateWithLifecycle()
     val isServerConnected by viewModel.isServerConnected.collectAsStateWithLifecycle()
-    val hasAccess by subscriptionViewModel.hasAccess.collectAsStateWithLifecycle()
-    val subscriptionStatus by subscriptionViewModel.subscriptionStatus.collectAsStateWithLifecycle()
+    val isProUser by subscriptionViewModel.isProUser.collectAsStateWithLifecycle()
     
-    // 접근 권한이 없으면 차단 화면 표시
-    if (!hasAccess && subscriptionStatus.trialDaysRemaining != -1) {
-        // 만료 화면 표시
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                Text(
-                    text = "🔒",
-                    fontSize = 64.sp
-                )
-                
-                Text(
-                    text = "무료 체험이 종료되었습니다",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                
-                Text(
-                    text = "PRO 구독을 통해 계속 사용하실 수 있습니다",
-                    fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // 설정 화면으로 이동 버튼 (구독 화면 진입 가능)
-                Button(
-                    onClick = onNavigateToSettings,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Text(
-                        text = "구독하기",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-        return
-    }
-    
+    // 만료 화면 제거 - 모든 유저가 기본 기능 사용 가능
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -199,10 +145,10 @@ fun MainScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         NotionFeatureCard(
-                            title = "당첨 확인",
-                            description = "내 번호 당첨 여부",
+                            title = "당첨 확인${if (!isProUser) " 🔒" else ""}",
+                            description = if (!isProUser) "PRO 전용" else "내 번호 당첨 여부",
                             icon = "🏆",
-                            onClick = onNavigateToCheckWinning,
+                            onClick = if (isProUser) onNavigateToCheckWinning else onNavigateToSubscription,
                             modifier = Modifier.weight(1f)
                         )
                         
@@ -220,28 +166,28 @@ fun MainScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         NotionFeatureCard(
-                            title = "저장한 번호",
-                            description = "관심 번호 관리",
+                            title = "저장한 번호${if (!isProUser) " 🔒" else ""}",
+                            description = if (!isProUser) "PRO 전용" else "관심 번호 관리",
                             icon = "💾",
-                            onClick = onNavigateToSavedNumbers,
+                            onClick = if (isProUser) onNavigateToSavedNumbers else onNavigateToSubscription,
                             modifier = Modifier.weight(1f)
                         )
                         
                         NotionFeatureCard(
-                            title = "가상 추첨",
-                            description = "재미있는 추첨 체험",
+                            title = "가상 추첨${if (!isProUser) " 🔒" else ""}",
+                            description = if (!isProUser) "PRO 전용" else "재미있는 추첨 체험",
                             icon = "🎰",
-                            onClick = onNavigateToVirtualDraw,
+                            onClick = if (isProUser) onNavigateToVirtualDraw else onNavigateToSubscription,
                             modifier = Modifier.weight(1f)
                         )
                     }
                 }
             }
             
-            // 고급 기능
+            // 고급 기능 (Pro 전용)
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
-                    text = "고급 분석",
+                    text = "고급 분석${if (!isProUser) " 🔒" else ""}",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = NotionColors.TextSecondary
@@ -263,18 +209,22 @@ fun MainScreen(
                         }
                         
                         Text(
-                            text = "저장된 번호들의 패턴과 통계를 시각적으로 분석합니다",
+                            text = if (isProUser) {
+                                "저장된 번호들의 패턴과 통계를 시각적으로 분석합니다"
+                            } else {
+                                "PRO 구독 시 이용 가능한 고급 기능입니다"
+                            },
                             fontSize = 14.sp,
                             color = NotionColors.TextSecondary,
                             lineHeight = 20.sp
                         )
                         
                         NotionButton(
-                            text = "분석 대시보드 열기",
-                            onClick = onNavigateToAnalysis,
+                            text = if (isProUser) "분석 대시보드 열기" else "PRO 구독하기",
+                            onClick = if (isProUser) onNavigateToAnalysis else onNavigateToSubscription,
                             modifier = Modifier.fillMaxWidth(),
                             variant = NotionButtonVariant.Secondary,
-                            leadingIcon = "📊"
+                            leadingIcon = if (isProUser) "📊" else "🔒"
                         )
                     }
                 }
