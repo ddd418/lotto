@@ -2,6 +2,7 @@ package com.lotto.app.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -22,6 +23,8 @@ import com.lotto.app.ui.theme.NotionColors
 import com.lotto.app.ui.components.*
 import com.lotto.app.viewmodel.AuthViewModel
 import com.lotto.app.viewmodel.SubscriptionViewModel
+import com.lotto.app.viewmodel.ThemeViewModel
+import com.lotto.app.viewmodel.UserSettingsViewModel
 import com.lotto.app.viewmodel.UiState
 
 /**
@@ -31,18 +34,42 @@ import com.lotto.app.viewmodel.UiState
 fun LoginScreen(
     onLoginSuccess: (Boolean) -> Unit,  // Boolean: 신규 가입자 여부
     viewModel: AuthViewModel = viewModel(),
-    subscriptionViewModel: SubscriptionViewModel? = null
+    subscriptionViewModel: SubscriptionViewModel? = null,
+    themeViewModel: ThemeViewModel? = null,
+    userSettingsViewModel: UserSettingsViewModel? = null
 ) {
     val context = LocalContext.current
     val loginState by viewModel.loginState.collectAsStateWithLifecycle()
     val isNewUser by viewModel.isNewUser.collectAsStateWithLifecycle()
+    val isSystemDark = isSystemInDarkTheme()
     
-    // 로그인 성공 시 구독 상태 서버와 동기화 후 메인 화면으로 이동
+    // 테마 적용 완료 여부를 추적
+    var themeApplied by remember { mutableStateOf(false) }
+    
+    // 로그인 성공 시 구독 상태 및 테마 설정 서버와 동기화
     LaunchedEffect(loginState) {
-        if (loginState is UiState.Success) {
-            // 구독 상태를 서버와 동기화 (ViewModel이 제공된 경우에만)
+        if (loginState is UiState.Success && !themeApplied) {
+            // 구독 상태를 서버와 동기화
             subscriptionViewModel?.syncWithServer()
-            onLoginSuccess(isNewUser)
+            
+            // 사용자 설정(테마 포함)을 서버에서 로드
+            userSettingsViewModel?.loadSettings()
+        }
+    }
+    
+    // 서버에서 로드한 테마 설정을 ThemeViewModel에 적용
+    val settings by userSettingsViewModel?.settings?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(null) }
+    LaunchedEffect(settings) {
+        if (settings != null && !themeApplied && loginState is UiState.Success) {
+            settings?.let { currentSettings ->
+                // 서버에서 받은 테마 설정 적용
+                themeViewModel?.setThemeMode(context, currentSettings.themeMode, isSystemDark)
+                android.util.Log.d("LoginScreen", "✅ 서버 테마 적용: ${currentSettings.themeMode}")
+                
+                themeApplied = true
+                // 테마 적용 후 화면 이동
+                onLoginSuccess(isNewUser)
+            }
         }
     }
     

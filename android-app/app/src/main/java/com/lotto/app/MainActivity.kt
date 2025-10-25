@@ -45,6 +45,7 @@ import com.lotto.app.viewmodel.SavedNumberViewModel
 import com.lotto.app.viewmodel.SubscriptionViewModel
 import com.lotto.app.viewmodel.SubscriptionViewModelFactory
 import com.lotto.app.viewmodel.ThemeViewModel
+import com.lotto.app.viewmodel.UserSettingsViewModel
 
 /**
  * 네비게이션 라우트
@@ -71,6 +72,7 @@ sealed class Screen(val route: String) {
 class MainActivity : ComponentActivity() {
     private val viewModel: LottoViewModel by viewModels()
     private val themeViewModel: ThemeViewModel by viewModels()
+    private val userSettingsViewModel: UserSettingsViewModel by viewModels()
     
     private var showAuthErrorDialog = mutableStateOf(false)
     
@@ -129,7 +131,8 @@ class MainActivity : ComponentActivity() {
                             showAuthErrorDialog.value = false
                             // 앱 종료
                             finish()
-                        }
+                        },
+                        userSettingsViewModel = userSettingsViewModel
                     )
                 }
             }
@@ -152,7 +155,8 @@ fun LottoApp(
     themeViewModel: ThemeViewModel,
     context: Context,
     showAuthErrorDialog: Boolean,
-    onDismissAuthError: () -> Unit
+    onDismissAuthError: () -> Unit,
+    userSettingsViewModel: UserSettingsViewModel
 ) {
     val navController = rememberNavController()
     
@@ -228,6 +232,8 @@ fun LottoApp(
             LoginScreen(
                 viewModel = authViewModel,
                 subscriptionViewModel = subscriptionViewModel,
+                themeViewModel = themeViewModel,
+                userSettingsViewModel = userSettingsViewModel,
                 onLoginSuccess = { isNewUser ->
                     // 신규 가입자도 기존 사용자도 모두 무료로 시작
                     navController.navigate(Screen.Main.route) {
