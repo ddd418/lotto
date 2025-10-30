@@ -110,10 +110,10 @@ class SavedNumberViewModel : ViewModel() {
      */
     fun updateNumber(
         id: Int,
-        numbers: List<Int>,
+        numbers: List<Int>? = null,  // Optional로 변경
         nickname: String? = null,
         memo: String? = null,
-        isFavorite: Boolean = false,
+        isFavorite: Boolean? = null,  // Optional로 변경
         recommendationType: String? = null
     ) {
         viewModelScope.launch {
@@ -175,7 +175,7 @@ class SavedNumberViewModel : ViewModel() {
     fun toggleFavorite(savedNumber: SavedNumberResponse) {
         updateNumber(
             id = savedNumber.id,
-            numbers = savedNumber.numbers,
+            numbers = null,  // 즐겨찾기만 변경하므로 null
             nickname = savedNumber.nickname,
             memo = savedNumber.memo,
             isFavorite = !savedNumber.isFavorite,
@@ -189,7 +189,7 @@ class SavedNumberViewModel : ViewModel() {
     fun updateMemo(savedNumber: SavedNumberResponse, newMemo: String) {
         updateNumber(
             id = savedNumber.id,
-            numbers = savedNumber.numbers,
+            numbers = null,  // nickname만 변경하므로 null
             nickname = savedNumber.nickname,
             memo = newMemo,
             isFavorite = savedNumber.isFavorite,
@@ -203,11 +203,25 @@ class SavedNumberViewModel : ViewModel() {
     fun updateNickname(savedNumber: SavedNumberResponse, newNickname: String) {
         updateNumber(
             id = savedNumber.id,
-            numbers = savedNumber.numbers,
+            numbers = null,  // nickname만 변경하므로 null
             nickname = newNickname,
             memo = savedNumber.memo,
             isFavorite = savedNumber.isFavorite,
             recommendationType = savedNumber.recommendationType
+        )
+    }
+    
+    /**
+     * 별칭과 메모 동시 업데이트
+     */
+    fun updateNicknameAndMemo(savedNumber: SavedNumberResponse, newNickname: String, newMemo: String) {
+        updateNumber(
+            id = savedNumber.id,
+            numbers = null,  // 번호는 변경하지 않음
+            nickname = newNickname,
+            memo = newMemo,
+            isFavorite = null,  // 변경하지 않음
+            recommendationType = null  // 변경하지 않음
         )
     }
     

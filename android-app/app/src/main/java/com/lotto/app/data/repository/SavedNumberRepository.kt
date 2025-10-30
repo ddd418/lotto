@@ -76,10 +76,10 @@ class SavedNumberRepository(
      */
     suspend fun updateNumber(
         id: Int,
-        numbers: List<Int>,
+        numbers: List<Int>? = null,  // Optional로 변경
         nickname: String? = null,
         memo: String? = null,
-        isFavorite: Boolean = false,
+        isFavorite: Boolean? = null,  // Optional로 변경
         recommendationType: String? = null
     ): Result<SavedNumberResponse> = withContext(Dispatchers.IO) {
         try {

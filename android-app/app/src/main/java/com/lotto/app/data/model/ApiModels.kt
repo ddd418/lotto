@@ -93,7 +93,7 @@ data class SyncResponse(
  */
 data class SavedNumberRequest(
     @SerializedName("numbers")
-    val numbers: List<Int>,
+    val numbers: List<Int>? = null,  // Optional로 변경 (부분 업데이트 지원)
     
     @SerializedName("nickname")
     val nickname: String? = null,
@@ -102,7 +102,7 @@ data class SavedNumberRequest(
     val memo: String? = null,
     
     @SerializedName("is_favorite")
-    val isFavorite: Boolean = false,
+    val isFavorite: Boolean? = null,  // Optional로 변경
     
     @SerializedName("recommendation_type")
     val recommendationType: String? = null

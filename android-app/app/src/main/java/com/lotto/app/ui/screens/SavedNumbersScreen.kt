@@ -225,8 +225,7 @@ fun SavedNumbersScreen(
             number = number,
             onDismiss = { showEditDialog = null },
             onSave = { nickname, memo ->
-                viewModel.updateNickname(number, nickname)
-                viewModel.updateMemo(number, memo)
+                viewModel.updateNicknameAndMemo(number, nickname, memo)
                 showEditDialog = null
             }
         )
