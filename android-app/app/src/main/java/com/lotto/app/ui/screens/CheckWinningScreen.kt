@@ -990,24 +990,28 @@ fun VirtualDrawAnimationDialog(
         else -> null
     }
     
-    // 애니메이션 진행
+    // 애니메이션 진행 (빠른 모드)
     LaunchedEffect(Unit) {
-        // 1. 준비 단계 (1초)
-        delay(1000)
+        // 1. 준비 단계 (0.3초)
+        delay(300)
         
-        // 2. 당첨 번호 하나씩 공개 (각 0.8초)
+        // 2. 당첨 번호 하나씩 공개 (각 0.15초)
         winningNumbers.forEach { number ->
             revealedNumbers = revealedNumbers + number
-            delay(800)
+            delay(150)
         }
         
-        // 3. 보너스 번호 공개 (1초)
-        delay(500)
+        // 3. 보너스 번호 공개 (0.3초)
+        delay(150)
         revealedNumbers = revealedNumbers + bonusNumber
-        delay(1000)
+        delay(300)
         
         // 4. 결과 표시
         showResult = true
+        
+        // 5. 결과 표시 후 자동 진행 (0.8초)
+        delay(800)
+        onAnimationComplete(matchCount, hasBonus, rank)
     }
     
     AlertDialog(
@@ -1165,19 +1169,10 @@ fun VirtualDrawAnimationDialog(
             }
         },
         confirmButton = {
-            if (showResult) {
-                Button(
-                    onClick = { onAnimationComplete(matchCount, hasBonus, rank) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Text(if (totalCount > 1 && currentIndex < totalCount) "다음 번호 추첨" else "확인")
-                }
-            }
+            // 자동 진행으로 버튼 제거
         },
         dismissButton = {
-            if (showResult && totalCount > 1) {
+            if (totalCount > 1) {
                 TextButton(onClick = onDismiss) {
                     Text("전체 중단")
                 }
