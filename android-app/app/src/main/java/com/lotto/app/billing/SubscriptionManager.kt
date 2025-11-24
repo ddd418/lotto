@@ -234,6 +234,33 @@ class SubscriptionManager(
     }
     
     /**
+     * Google Play Store 구독 관리 페이지로 이동
+     * 
+     * Google Play Billing API는 직접 구독 취소 기능을 제공하지 않으므로,
+     * 사용자를 Play Store 구독 관리 페이지로 리다이렉트해야 합니다.
+     */
+    fun openSubscriptionManagement(activity: Activity) {
+        try {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+            intent.data = android.net.Uri.parse(
+                "https://play.google.com/store/account/subscriptions?sku=$SUBSCRIPTION_PRODUCT_ID&package=${context.packageName}"
+            )
+            activity.startActivity(intent)
+            Log.d("SubscriptionManager", "✅ Play Store 구독 관리 페이지 열기 성공")
+        } catch (e: Exception) {
+            Log.e("SubscriptionManager", "❌ Play Store 구독 관리 페이지 열기 실패: ${e.message}")
+            // 대체: 일반 구독 관리 페이지
+            try {
+                val fallbackIntent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+                fallbackIntent.data = android.net.Uri.parse("https://play.google.com/store/account/subscriptions")
+                activity.startActivity(fallbackIntent)
+            } catch (e2: Exception) {
+                Log.e("SubscriptionManager", "❌ 대체 링크도 실패: ${e2.message}")
+            }
+        }
+    }
+    
+    /**
      * 서버 상태로 Pro 여부 업데이트 (서버 동기화용)
      */
     fun updateProStatusFromServer(isPro: Boolean) {

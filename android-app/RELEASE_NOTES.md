@@ -1,15 +1,39 @@
-# 로또연구소 v1.2.4 출시 노트
+# 로또연구소 릴리스 노트
 
-## 🎯 Google Play Store 출시 노트
+## v1.2.5 (2025-11-19)
 
-### 한국어 (주 언어)
+### 🔒 중요 보안 업데이트
 
-```
-v1.2.4 (2024-11-11)
+**긴급 수정:**
 
-⚡ 대폭 업데이트!
+- ❌ **자동 갱신 비활성화 고객의 자동 결제 오류 수정**
+- ✅ auto_renew=false 사용자의 자동 결제 차단
+- ✅ 서버 구독 검증 로직 강화
 
-🚀 성능 개선:
+**구독 취소 프로세스 개선:**
+
+- ✅ Play Store 구독 관리 페이지 연동 추가
+- ✅ 구독 취소 시 Google Play로 자동 리다이렉트
+- ✅ 구독 취소 안내 메시지 개선
+
+**기술적 개선:**
+
+- `subscription_api.py`: verify_purchase에 auto_renew 체크 로직 추가
+- `SubscriptionManager.kt`: openSubscriptionManagement() 기능 추가
+- `SubscriptionViewModel.kt`: 구독 취소 프로세스 개선
+- `SubscriptionStatusScreen.kt`: Play Store 구독 관리 UI 개선
+
+**사용자분들께:**
+이번 업데이트는 구독 취소 관련 중요한 보안 문제를 수정합니다.
+불편을 드려 죄송합니다.
+
+---
+
+## v1.2.4 (2024-11-11)
+
+### ⚡ 대폭 업데이트!
+
+**🚀 성능 개선:**
 • 당첨 확인 속도 5배 향상! (순차 추첨 애니메이션 최적화)
 • 자동 진행으로 더욱 편리한 사용자 경험
 
@@ -31,11 +55,13 @@ v1.2.4 (2024-11-11)
 • 개인화된 번호 관리
 
 지금 다운로드하고 AI가 분석한 최적의 로또 번호를 받아보세요!
+
 ```
 
 ### 영어 (보조 언어)
 
 ```
+
 v1.2.4 (2024-11-11)
 
 ⚡ Major Update!
@@ -62,6 +88,7 @@ v1.2.4 (2024-11-11)
 • Personalized number management
 
 Download now and get AI-analyzed optimal lottery numbers!
+
 ```
 
 ## 📝 업데이트 상세 내용
@@ -90,3 +117,4 @@ Download now and get AI-analyzed optimal lottery numbers!
 기존 순차 애니메이션의 느린 속도를 대폭 개선하여 더욱 빠르고 효율적인 사용자 경험을 제공합니다.
 
 앞으로도 지속적인 업데이트를 통해 더 나은 서비스를 제공하겠습니다.
+```

@@ -1,5 +1,6 @@
 package com.lotto.app.ui.screens
 
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -33,6 +35,7 @@ fun SubscriptionStatusScreen(
     onNavigateToSubscription: () -> Unit
 ) {
     val status by viewModel.subscriptionStatus.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     
     LaunchedEffect(Unit) {
         viewModel.refreshStatus()
@@ -85,7 +88,7 @@ fun SubscriptionStatusScreen(
                     subscriptionEndDate = status.subscriptionEndDate,
                     autoRenew = status.autoRenew,
                     onCancelSubscription = {
-                        viewModel.cancelSubscription()
+                        viewModel.cancelSubscription(context as Activity)
                     }
                 )
             }
@@ -204,7 +207,13 @@ private fun SubscriptionInfoCard(
             onDismissRequest = { showCancelDialog = false },
             title = { Text("구독 취소") },
             text = { 
-                Text("정말로 구독을 취소하시겠습니까?\n\n현재 구독 기간까지는 PRO 기능을 계속 사용하실 수 있습니다.") 
+                Text(
+                    "구독을 취소하시겠습니까?\n\n" +
+                    "• 앱에서 자동 갱신이 비활성화됩니다\n" +
+                    "• Google Play Store 구독 관리 페이지로 이동합니다\n" +
+                    "• Play Store에서도 직접 구독을 취소해주세요\n" +
+                    "• 현재 구독 기간까지는 PRO 기능을 계속 사용하실 수 있습니다"
+                ) 
             },
             confirmButton = {
                 TextButton(
@@ -213,7 +222,7 @@ private fun SubscriptionInfoCard(
                         showCancelDialog = false
                     }
                 ) {
-                    Text("취소하기", color = NotionColors.Error)
+                    Text("구독 관리 페이지로 이동", color = NotionColors.Error)
                 }
             },
             dismissButton = {

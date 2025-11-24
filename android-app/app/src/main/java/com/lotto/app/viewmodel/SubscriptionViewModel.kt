@@ -169,17 +169,30 @@ class SubscriptionViewModel(
     
     /**
      * 구독 취소
+     * 
+     * 1. 서버에 구독 취소 API 호출 (auto_renew = false)
+     * 2. Google Play Store 구독 관리 페이지로 리다이렉트
      */
-    fun cancelSubscription() {
+    fun cancelSubscription(activity: Activity) {
         viewModelScope.launch {
             try {
+                // 1. 서버에 구독 취소 요청
                 val response = subscriptionApi.cancelSubscription()
                 if (response.isSuccessful) {
-                    // 상태 새로고침
+                    Log.d("SubscriptionViewModel", "✅ 서버 구독 취소 성공")
+                    
+                    // 2. Play Store 구독 관리 페이지로 이동
+                    subscriptionManager.openSubscriptionManagement(activity)
+                    
+                    // 3. 상태 새로고침
                     refreshStatus()
+                } else {
+                    Log.e("SubscriptionViewModel", "❌ 서버 구독 취소 실패: ${response.code()}")
+                    _errorMessage.value = "구독 취소에 실패했습니다."
                 }
             } catch (e: Exception) {
-                // 오류 처리
+                Log.e("SubscriptionViewModel", "❌ 구독 취소 오류: ${e.message}")
+                _errorMessage.value = "구독 취소 중 오류가 발생했습니다: ${e.message}"
             }
         }
     }
