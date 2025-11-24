@@ -266,6 +266,7 @@ async def verify_purchase(
     
     - Google Play에서 구매한 구독을 검증
     - 검증 성공 시 PRO 구독 활성화
+    - 🚨 자동 갱신이 비활성화된 경우 갱신 거부
     """
     subscription = get_or_create_subscription(db, user_id)
     
@@ -277,6 +278,17 @@ async def verify_purchase(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="유효하지 않은 구매 정보입니다."
+        )
+    
+    # 🚨 중요: 기존 구독자의 자동 갱신 여부 확인
+    if subscription.is_pro_subscriber and subscription.auto_renew == False:
+        print(f"⚠️ 자동 갱신 비활성화된 사용자의 구독 갱신 시도 차단!")
+        print(f"   user_id: {user_id}")
+        print(f"   auto_renew: {subscription.auto_renew}")
+        print(f"   order_id: {request.order_id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="구독이 취소되었습니다. 자동 갱신이 비활성화되어 있습니다."
         )
     
     # 이미 같은 주문 ID가 등록되어 있는지 확인
