@@ -71,6 +71,14 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     setup_scheduler()
+    
+    # DB 초기화를 백그라운드에서 실행 (서버 시작을 블로킹하지 않음)
+    import threading
+    from init_db import init_database
+    init_thread = threading.Thread(target=init_database, daemon=True)
+    init_thread.start()
+    logger.info("🔄 DB 초기화가 백그라운드에서 시작되었습니다")
+    
     yield
     # Shutdown
     if scheduler.running:
@@ -1736,12 +1744,7 @@ if __name__ == "__main__":
     import uvicorn
     import os
     
-    # DB 초기화 실행
-    from init_db import init_database
-    init_database()
-    
-    # DB에서 데이터를 읽으므로 통계 파일 생성 불필요
-    # (모든 데이터는 DB에서 실시간 조회)
+    # DB 초기화는 lifespan에서 백그라운드로 실행됨
     
     # 스케줄러 정리를 위한 atexit 핸들러 등록
     atexit.register(lambda: scheduler.shutdown() if scheduler.running else None)
