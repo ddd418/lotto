@@ -84,64 +84,152 @@ def fetch_from_naver_search(draw_no: int) -> Optional[Dict]:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Referer': 'https://www.naver.com/',
         }
         
-        url = NAVER_SEARCH_URL.format(draw_no=draw_no)
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
+        # 네이버 검색 URL - "로또 당첨번호" 또는 "복권 당첨번호"
+        search_queries = [
+            "로또 당첨번호",
+            "복권 당첨번호", 
+            f"로또 {draw_no}회 당첨번호"
+        ]
         
-        html = response.text
+        html = None
+        for query in search_queries:
+            try:
+                url = f"https://search.naver.com/search.naver?query={requests.utils.quote(query)}"
+                response = requests.get(url, headers=headers, timeout=15)
+                response.raise_for_status()
+                html = response.text
+                
+                # win_number_box가 있으면 성공
+                if 'win_number_box' in html or 'winning_number' in html:
+                    logger.info(f"✅ 네이버 검색 성공: {query}")
+                    break
+            except Exception as e:
+                logger.warning(f"⚠️ 검색 실패 ({query}): {e}")
+                continue
         
-        # 네이버 로또 결과 패턴 매칭
-        # 패턴: "1205회차 (2026.01.03)" 와 번호들
-        
-        # 회차 확인
-        draw_pattern = rf'{draw_no}회차\s*\((\d{{4}}\.\d{{2}}\.\d{{2}})\)'
-        draw_match = re.search(draw_pattern, html)
-        
-        if not draw_match:
-            logger.warning(f"⚠️ 네이버에서 {draw_no}회차 정보를 찾을 수 없음")
+        if not html:
+            logger.warning("⚠️ 네이버 검색 결과를 가져올 수 없음")
             return None
         
-        draw_date = draw_match.group(1).replace('.', '-')
+        # 방법 1: 새로운 네이버 검색 결과 패턴 (win_number_box 구조)
+        # <div class="win_number_box">
+        #   <div class="winning_number"> <span class="ball type1">1</span>... </div>
+        #   <div class="bonus_number"> <span class="ball type1">2</span> </div>
+        #   <p class="win_text">1등 당첨금 <strong>3,226,386,263</strong>원 (당첨 복권수 10개)</p>
+        # </div>
         
-        # 당첨번호 패턴 (연속된 6개 숫자 + 보너스)
-        # 네이버 결과에서 "1 4 16 23 31 41  2" 형태
-        # HTML에서 숫자들을 추출
+        numbers = []
+        bonus = None
+        prize_1st = None
+        winners_1st = None
         
-        # 방법 1: 로또 번호 영역에서 숫자 추출
-        # 네이버 검색 결과 HTML 구조: 번호가 연속으로 나옴
-        numbers_pattern = r'당첨번호.*?(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)'
-        numbers_match = re.search(numbers_pattern, html, re.DOTALL)
+        # 당첨번호 추출 - winning_number 영역
+        winning_pattern = r'winning_number["\']?\s*>([^<]*(?:<[^>]*>[^<]*)*?)</div>'
+        winning_match = re.search(winning_pattern, html, re.DOTALL | re.IGNORECASE)
         
-        if not numbers_match:
-            # 방법 2: 더 유연한 패턴
-            # 1~45 사이 숫자 7개를 찾기
-            ball_pattern = r'>(\d{1,2})<'
-            balls = re.findall(ball_pattern, html)
+        if winning_match:
+            winning_html = winning_match.group(1)
+            # ball 클래스에서 숫자 추출: <span class="ball type1">1</span>
+            ball_pattern = r'ball[^"]*"[^>]*>(\d+)</span>'
+            balls = re.findall(ball_pattern, winning_html, re.IGNORECASE)
+            numbers = [int(b) for b in balls if 1 <= int(b) <= 45]
+            logger.info(f"📊 winning_number에서 추출: {numbers}")
+        
+        # 보너스 번호 추출 - bonus_number 영역
+        bonus_pattern = r'bonus_number["\']?\s*>([^<]*(?:<[^>]*>[^<]*)*?)</div>'
+        bonus_match = re.search(bonus_pattern, html, re.DOTALL | re.IGNORECASE)
+        
+        if bonus_match:
+            bonus_html = bonus_match.group(1)
+            ball_pattern = r'ball[^"]*"[^>]*>(\d+)</span>'
+            bonus_balls = re.findall(ball_pattern, bonus_html, re.IGNORECASE)
+            if bonus_balls:
+                bonus = int(bonus_balls[0])
+                logger.info(f"📊 bonus_number에서 추출: {bonus}")
+        
+        # 당첨금 및 당첨자 수 추출
+        # "1등 당첨금 <strong class="emphasis">3,226,386,263</strong>원 (당첨 복권수 10개)"
+        prize_pattern = r'1등\s*당첨금[^<]*<strong[^>]*>([0-9,]+)</strong>원[^(]*\(당첨[^0-9]*(\d+)'
+        prize_match = re.search(prize_pattern, html, re.IGNORECASE)
+        
+        if prize_match:
+            prize_str = prize_match.group(1).replace(',', '')
+            prize_1st = int(prize_str)
+            winners_1st = int(prize_match.group(2))
+            logger.info(f"💰 당첨금: {prize_1st:,}원, 당첨자: {winners_1st}명")
+        
+        # 방법 2: 번호를 찾지 못했으면 더 유연한 패턴 시도
+        if len(numbers) < 6 or bonus is None:
+            logger.info("🔄 대체 패턴으로 번호 추출 시도...")
             
-            # 1~45 사이 숫자만 필터링
-            valid_balls = [int(b) for b in balls if 1 <= int(b) <= 45]
+            # win_ball 전체 영역에서 ball 태그 찾기
+            win_ball_pattern = r'win_ball["\']?\s*>([^<]*(?:<[^>]*>[^<]*)*?)</div>\s*</div>'
+            win_ball_match = re.search(win_ball_pattern, html, re.DOTALL | re.IGNORECASE)
             
-            # 연속된 7개 숫자 찾기 (당첨번호 6개 + 보너스 1개)
-            if len(valid_balls) >= 7:
-                # 첫 번째로 나오는 7개 사용 (보통 당첨번호)
-                numbers = valid_balls[:6]
-                bonus = valid_balls[6]
-            else:
-                logger.warning(f"⚠️ 네이버에서 당첨번호 파싱 실패")
-                return None
-        else:
-            numbers = [int(numbers_match.group(i)) for i in range(1, 7)]
-            bonus = int(numbers_match.group(7))
+            if win_ball_match:
+                win_ball_html = win_ball_match.group(1)
+                ball_pattern = r'ball[^"]*"[^>]*>(\d+)</span>'
+                all_balls = re.findall(ball_pattern, win_ball_html, re.IGNORECASE)
+                all_balls = [int(b) for b in all_balls if 1 <= int(b) <= 45]
+                
+                if len(all_balls) >= 7:
+                    numbers = all_balls[:6]
+                    bonus = all_balls[6]
+                    logger.info(f"📊 win_ball에서 추출: {numbers} + 보너스 {bonus}")
+        
+        # 방법 3: 여전히 못 찾았으면 전체 HTML에서 ball 클래스 찾기
+        if len(numbers) < 6 or bonus is None:
+            ball_pattern = r'<span[^>]*class="ball[^"]*"[^>]*>(\d+)</span>'
+            all_balls = re.findall(ball_pattern, html, re.IGNORECASE)
+            all_balls = [int(b) for b in all_balls if 1 <= int(b) <= 45]
+            
+            if len(all_balls) >= 7:
+                numbers = all_balls[:6]
+                bonus = all_balls[6]
+                logger.info(f"📊 전체 HTML에서 추출: {numbers} + 보너스 {bonus}")
         
         # 유효성 검사
+        if len(numbers) < 6:
+            logger.warning(f"⚠️ 당첨번호 부족: {numbers}")
+            return None
+        
+        if bonus is None:
+            logger.warning("⚠️ 보너스 번호를 찾을 수 없음")
+            return None
+        
         if not all(1 <= n <= 45 for n in numbers) or not (1 <= bonus <= 45):
             logger.warning(f"⚠️ 파싱된 번호가 유효하지 않음: {numbers} + {bonus}")
             return None
         
+        # 회차 번호 확인 (선택적) - 네이버 검색 결과에 회차가 표시될 수 있음
+        draw_found = draw_no
+        draw_date = None
+        
+        # 회차 패턴: "1205회" 또는 "1205회차"
+        draw_no_pattern = r'(\d{4})회'
+        draw_no_match = re.search(draw_no_pattern, html)
+        if draw_no_match:
+            draw_found = int(draw_no_match.group(1))
+            logger.info(f"📊 검색결과 회차: {draw_found}회")
+        
+        # 날짜 패턴: "2026.01.03" 또는 "(2026.01.03 추첨)"
+        date_pattern = r'\((\d{4}\.\d{2}\.\d{2})\s*추첨?\)'
+        date_match = re.search(date_pattern, html)
+        if date_match:
+            draw_date = date_match.group(1).replace('.', '-')
+        else:
+            # 날짜가 없으면 오늘 또는 직전 토요일 계산
+            from datetime import datetime, timedelta
+            today = datetime.now()
+            days_since_saturday = (today.weekday() + 2) % 7
+            last_saturday = today - timedelta(days=days_since_saturday)
+            draw_date = last_saturday.strftime('%Y-%m-%d')
+        
         result = {
-            'drwNo': draw_no,
+            'drwNo': draw_found,
             'drwNoDate': draw_date,
             'drwtNo1': numbers[0],
             'drwtNo2': numbers[1],
@@ -153,7 +241,13 @@ def fetch_from_naver_search(draw_no: int) -> Optional[Dict]:
             'returnValue': 'success'
         }
         
-        logger.info(f"✅ {draw_no}회차 네이버에서 가져오기 성공: {numbers} + 보너스 {bonus}")
+        # 당첨금 정보 추가 (있으면)
+        if prize_1st:
+            result['firstWinamnt'] = prize_1st
+        if winners_1st:
+            result['firstPrzwnerCo'] = winners_1st
+        
+        logger.info(f"✅ {draw_found}회차 네이버에서 가져오기 성공: {numbers} + 보너스 {bonus}")
         return result
         
     except requests.exceptions.RequestException as e:
@@ -279,8 +373,8 @@ def fetch_from_main_page() -> List[Dict]:
 
 def fetch_winning_number(draw_no: int) -> Optional[Dict]:
     """
-    동행복권에서 특정 회차의 당첨 번호 가져오기
-    2026년부터 API 차단으로 메인 페이지 스크래핑 방식 사용
+    로또 당첨 번호 가져오기
+    2026년부터 동행복권 API 차단으로 네이버 검색을 기본으로 사용
     
     Args:
         draw_no: 로또 회차 번호
@@ -288,13 +382,13 @@ def fetch_winning_number(draw_no: int) -> Optional[Dict]:
     Returns:
         당첨 번호 정보 딕셔너리 또는 None (실패 시)
     """
-    global _use_main_page_scraping
+    # 네이버 검색으로 당첨번호 가져오기 (기본 방식)
+    result = fetch_from_naver_search(draw_no)
+    if result:
+        return result
     
-    # 메인 페이지 스크래핑 방식 사용 (2026년부터 API 차단됨)
-    if _use_main_page_scraping:
-        return fetch_winning_number_from_cache(draw_no)
-    
-    # 먼저 기존 API 시도
+    # 네이버 실패 시 동행복권 API 시도 (백업)
+    logger.info(f"🔄 네이버 검색 실패 - 동행복권 API 시도 중...")
     url = API_URL.format(drw_no=draw_no)
     try:
         session = get_session()
@@ -304,14 +398,13 @@ def fetch_winning_number(draw_no: int) -> Optional[Dict]:
         # 응답이 JSON인지 확인
         content_type = response.headers.get('Content-Type', '')
         if 'application/json' not in content_type and not response.text.strip().startswith('{'):
-            logger.warning(f"⚠️ API 차단 감지 - 메인 페이지 스크래핑으로 전환합니다")
-            _use_main_page_scraping = True
-            return fetch_winning_number_from_cache(draw_no)
+            logger.warning(f"⚠️ 동행복권 API 차단됨")
+            return None
         
         obj = response.json()
         
         if obj.get("returnValue") == "success":
-            logger.info(f"✅ {draw_no}회차 당첨 번호 가져오기 성공")
+            logger.info(f"✅ {draw_no}회차 당첨 번호 가져오기 성공 (동행복권 API)")
             return obj
         else:
             logger.warning(f"❌ {draw_no}회차 당첨 번호 없음 (아직 추첨 전이거나 잘못된 회차)")
@@ -320,9 +413,8 @@ def fetch_winning_number(draw_no: int) -> Optional[Dict]:
         logger.error(f"❌ {draw_no}회차 네트워크 오류: {e}")
         return None
     except json.JSONDecodeError as e:
-        logger.warning(f"⚠️ API 차단 감지 (JSON 파싱 실패) - 메인 페이지 스크래핑으로 전환합니다")
-        _use_main_page_scraping = True
-        return fetch_winning_number_from_cache(draw_no)
+        logger.warning(f"⚠️ 동행복권 API JSON 파싱 실패")
+        return None
     except Exception as e:
         logger.error(f"❌ {draw_no}회차 API 호출 실패: {e}")
         return None
