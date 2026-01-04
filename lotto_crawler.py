@@ -392,42 +392,15 @@ def fetch_winning_number(draw_no: int) -> Optional[Dict]:
     Returns:
         당첨 번호 정보 딕셔너리 또는 None (실패 시)
     """
-    # 네이버 검색으로 당첨번호 가져오기 (기본 방식)
+    # 네이버 검색으로 당첨번호 가져오기 (유일한 방식)
+    # 네이버에서 실패하면 = 해당 회차가 아직 추첨되지 않음
     result = fetch_from_naver_search(draw_no)
     if result:
         return result
     
-    # 네이버 실패 시 동행복권 API 시도 (백업)
-    logger.info(f"🔄 네이버 검색 실패 - 동행복권 API 시도 중...")
-    url = API_URL.format(drw_no=draw_no)
-    try:
-        session = get_session()
-        response = session.get(url, timeout=10)
-        response.raise_for_status()
-        
-        # 응답이 JSON인지 확인
-        content_type = response.headers.get('Content-Type', '')
-        if 'application/json' not in content_type and not response.text.strip().startswith('{'):
-            logger.warning(f"⚠️ 동행복권 API 차단됨")
-            return None
-        
-        obj = response.json()
-        
-        if obj.get("returnValue") == "success":
-            logger.info(f"✅ {draw_no}회차 당첨 번호 가져오기 성공 (동행복권 API)")
-            return obj
-        else:
-            logger.warning(f"❌ {draw_no}회차 당첨 번호 없음 (아직 추첨 전이거나 잘못된 회차)")
-            return None
-    except requests.exceptions.RequestException as e:
-        logger.error(f"❌ {draw_no}회차 네트워크 오류: {e}")
-        return None
-    except json.JSONDecodeError as e:
-        logger.warning(f"⚠️ 동행복권 API JSON 파싱 실패")
-        return None
-    except Exception as e:
-        logger.error(f"❌ {draw_no}회차 API 호출 실패: {e}")
-        return None
+    # 네이버 실패 = 해당 회차 없음 (동행복권 API도 2026년부터 차단됨)
+    logger.info(f"ℹ️ {draw_no}회차 당첨번호 없음 (아직 추첨 전)")
+    return None
 
 # 메인 페이지에서 가져온 당첨번호 캐시
 _main_page_cache = {}
