@@ -1736,6 +1736,10 @@ if __name__ == "__main__":
     import uvicorn
     import os
     
+    # DB 초기화 실행
+    from init_db import init_database
+    init_database()
+    
     # DB에서 데이터를 읽으므로 통계 파일 생성 불필요
     # (모든 데이터는 DB에서 실시간 조회)
     
