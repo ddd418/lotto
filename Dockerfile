@@ -40,8 +40,5 @@ ENV PORT=8000
 # 포트 노출
 EXPOSE 8000
 
-# 시작 스크립트 실행 권한 부여
-RUN chmod +x /app/start.sh
-
-# 시작 명령
-CMD ["/bin/bash", "/app/start.sh"]
+# 시작 명령 (Shell form - 환경변수 확장됨)
+CMD python init_db.py && uvicorn api_server:app --host 0.0.0.0 --port ${PORT:-8000}
