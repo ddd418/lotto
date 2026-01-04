@@ -204,8 +204,8 @@ def fetch_from_naver_search(draw_no: int) -> Optional[Dict]:
             logger.warning(f"⚠️ 파싱된 번호가 유효하지 않음: {numbers} + {bonus}")
             return None
         
-        # 회차 번호 확인 (선택적) - 네이버 검색 결과에 회차가 표시될 수 있음
-        draw_found = draw_no
+        # 회차 번호 확인 - 네이버 검색 결과에서 실제 회차 추출
+        draw_found = None
         draw_date = None
         
         # 회차 패턴: "1205회" 또는 "1205회차"
@@ -214,6 +214,16 @@ def fetch_from_naver_search(draw_no: int) -> Optional[Dict]:
         if draw_no_match:
             draw_found = int(draw_no_match.group(1))
             logger.info(f"📊 검색결과 회차: {draw_found}회")
+        
+        # 요청한 회차와 검색결과 회차가 다르면 실패 처리
+        # (네이버는 항상 최신 회차만 보여주므로, 과거/미래 회차 요청 시 불일치)
+        if draw_found is not None and draw_found != draw_no:
+            logger.warning(f"⚠️ 요청 회차({draw_no})와 검색결과 회차({draw_found})가 다름 - 해당 회차 없음")
+            return None
+        
+        # 회차를 찾지 못했으면 요청 회차 사용
+        if draw_found is None:
+            draw_found = draw_no
         
         # 날짜 패턴: "2026.01.03" 또는 "(2026.01.03 추첨)"
         date_pattern = r'\((\d{4}\.\d{2}\.\d{2})\s*추첨?\)'
