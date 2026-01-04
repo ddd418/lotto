@@ -716,6 +716,73 @@ async def sync_winning_numbers(
             detail="동기화 중 오류가 발생했습니다"
         )
 
+class ManualWinningNumberRequest(BaseModel):
+    draw_number: int = Field(description="회차 번호")
+    numbers: List[int] = Field(description="당첨 번호 6개")
+    bonus_number: int = Field(description="보너스 번호")
+    draw_date: str = Field(description="추첨일 (YYYY-MM-DD)")
+    prize_1st: Optional[int] = Field(None, description="1등 당첨금")
+    winners_1st: Optional[int] = Field(None, description="1등 당첨자 수")
+
+@app.post("/api/winning-numbers/manual")
+async def add_winning_number_manual(
+    request: ManualWinningNumberRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    당첨 번호 수동 추가 (크롤링 실패 시 사용)
+    """
+    # 유효성 검사
+    if len(request.numbers) != 6:
+        raise HTTPException(status_code=400, detail="당첨 번호는 6개여야 합니다")
+    
+    if not all(1 <= n <= 45 for n in request.numbers):
+        raise HTTPException(status_code=400, detail="당첨 번호는 1~45 사이여야 합니다")
+    
+    if not (1 <= request.bonus_number <= 45):
+        raise HTTPException(status_code=400, detail="보너스 번호는 1~45 사이여야 합니다")
+    
+    # 중복 확인
+    existing = db.query(WinningNumber).filter(WinningNumber.draw_number == request.draw_number).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"{request.draw_number}회차 데이터가 이미 존재합니다")
+    
+    try:
+        from datetime import datetime
+        sorted_numbers = sorted(request.numbers)
+        
+        winning = WinningNumber(
+            draw_number=request.draw_number,
+            draw_date=datetime.strptime(request.draw_date, "%Y-%m-%d").date(),
+            number1=sorted_numbers[0],
+            number2=sorted_numbers[1],
+            number3=sorted_numbers[2],
+            number4=sorted_numbers[3],
+            number5=sorted_numbers[4],
+            number6=sorted_numbers[5],
+            bonus_number=request.bonus_number,
+            prize_1st=request.prize_1st,
+            winners_1st=request.winners_1st
+        )
+        
+        db.add(winning)
+        db.commit()
+        
+        logger.info(f"✅ {request.draw_number}회차 당첨번호 수동 추가 완료: {sorted_numbers} + {request.bonus_number}")
+        
+        return {
+            "success": True,
+            "message": f"{request.draw_number}회차 당첨번호가 추가되었습니다",
+            "draw_number": request.draw_number,
+            "numbers": sorted_numbers,
+            "bonus_number": request.bonus_number
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ 당첨번호 수동 추가 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # -----------------------------
 # 사용자 데이터 관련 엔드포인트
 # -----------------------------
