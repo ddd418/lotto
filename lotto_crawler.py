@@ -518,11 +518,10 @@ def save_winning_number_to_db(db: Session, draw_data: Dict) -> Optional[WinningN
 
 def get_latest_draw_number(start_from: Optional[int] = None) -> Optional[int]:
     """
-    현재 최신 회차 번호 추정 (연속 실패 방식)
-    lott.py의 collect_stats 로직 참고
+    현재 최신 회차 번호 추정 (네이버 검색 기반)
     
     Args:
-        start_from: 검색 시작 회차 (None이면 1회차부터, 값이 있으면 해당 회차+1부터 검색하여 최신 회차 찾기)
+        start_from: 검색 시작 회차 (None이면 1회차부터, 값이 있으면 해당 회차+1부터 검색)
     
     Returns:
         최신 회차 번호 또는 None
@@ -530,53 +529,36 @@ def get_latest_draw_number(start_from: Optional[int] = None) -> Optional[int]:
     # start_from이 있으면 그 다음 회차부터 검색 (증분 업데이트용)
     if start_from and start_from > 0:
         start_draw = start_from + 1
-        logger.info(f"🔍 최신 회차 검색 시작 ({start_draw}회차부터, 연속 실패 5회까지)")
+        logger.info(f"🔍 최신 회차 검색 ({start_draw}회차부터)")
     else:
         start_draw = 1
-        logger.info(f"🔍 최신 회차 검색 시작 (1회차부터 연속 실패 5회까지)")
+        logger.info(f"🔍 최신 회차 검색 (1회차부터)")
     
-    fail_streak = 0
-    last_success_draw = start_from if start_from else 0  # start_from을 초기값으로 설정
+    last_success_draw = start_from if start_from else 0
     drw_no = start_draw
-    
-    # 2026년부터 동행복권 API 차단으로 인한 특별 처리
-    consecutive_api_errors = 0
     
     while True:
         data = fetch_winning_number(drw_no)
         if not data:
-            fail_streak += 1
-            consecutive_api_errors += 1
-            logger.debug(f"  {drw_no}회차 실패 (연속 실패: {fail_streak}회)")
-            
-            # API가 완전히 차단된 경우 (연속 3회 이상 실패)
-            if consecutive_api_errors >= 3 and last_success_draw == start_from:
-                logger.error("❌ 동행복권 API 접근이 차단되었습니다")
-                logger.error("💡 2026년부터 동행복권이 외부 접근을 차단한 것으로 보입니다")
-                logger.info(f"📦 DB에 저장된 최신 회차({start_from}회)를 계속 사용합니다")
-                return start_from  # 기존 회차 반환
-            
-            if fail_streak >= 5:
-                if last_success_draw > 0:
-                    logger.info(f"🎯 최신 회차 확정: {last_success_draw}회 (연속 실패 5회 도달)")
-                else:
-                    logger.warning(f"⚠️ 최신 회차를 찾을 수 없습니다 (API 차단 가능성)")
-                break
+            # 실패 = 해당 회차 없음 (아직 추첨 전)
+            if last_success_draw > 0:
+                logger.info(f"🎯 최신 회차 확정: {last_success_draw}회")
+            else:
+                logger.info(f"ℹ️ 새로운 회차 없음 (현재 최신: {start_from}회)")
+            break
         else:
-            fail_streak = 0
-            consecutive_api_errors = 0
             last_success_draw = drw_no
             if drw_no % 100 == 0 or (start_from and drw_no == start_draw):
                 logger.info(f"  ✅ {drw_no}회차 확인됨...")
         
         drw_no += 1
         
-        # 무한루프 방지 (2030년까지 약 1500회차 예상)
+        # 무한루프 방지
         if drw_no > 2000:
             logger.warning(f"⚠️ 2000회차 도달, 검색 중단")
             break
     
-    return last_success_draw if last_success_draw > 0 else None
+    return last_success_draw if last_success_draw > 0 else start_from
 
 def sync_all_winning_numbers(db: Session, start_draw: int = 1, end_draw: Optional[int] = None) -> Dict:
     """
