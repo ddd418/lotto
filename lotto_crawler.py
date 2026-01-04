@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 API_URL = "https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo={drw_no}"
 MAIN_PAGE_URL = "https://www.dhlottery.co.kr/common.do?method=main"
+NAVER_SEARCH_URL = "https://search.naver.com/search.naver?query=로또+{draw_no}회+당첨번호"
 
 # 세션 재사용 (연결 풀링 및 쿠키 유지)
 _session = None
@@ -26,6 +27,7 @@ _last_request_time = 0
 _driver = None
 _use_selenium = False  # 봇 차단 시 자동으로 True로 전환
 _use_main_page_scraping = False  # API 차단 시 메인 페이지 스크래핑 사용
+_use_naver_search = False  # Selenium 실패 시 네이버 검색 사용
 
 def get_session():
     """HTTP 세션 가져오기 (싱글톤)"""
@@ -56,12 +58,110 @@ def get_session():
 
 def reset_session():
     """세션을 초기화하여 새로운 연결 시도 (봇 차단 해결용)"""
-    global _session, _session_initialized, _use_selenium, _use_main_page_scraping
+    global _session, _session_initialized, _use_selenium, _use_main_page_scraping, _use_naver_search
     _session = None
     _session_initialized = False
     _use_selenium = False
     _use_main_page_scraping = False
+    _use_naver_search = False
     logger.info("🔄 세션 초기화됨")
+
+def fetch_from_naver_search(draw_no: int) -> Optional[Dict]:
+    """
+    네이버 검색에서 로또 당첨번호 가져오기 (Selenium 없이 requests 사용)
+    동행복권 API 차단 시 대안으로 사용
+    
+    Args:
+        draw_no: 로또 회차 번호
+        
+    Returns:
+        당첨 번호 정보 딕셔너리 또는 None
+    """
+    try:
+        logger.info(f"🔍 네이버 검색에서 {draw_no}회차 당첨번호 조회 중...")
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        }
+        
+        url = NAVER_SEARCH_URL.format(draw_no=draw_no)
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        
+        html = response.text
+        
+        # 네이버 로또 결과 패턴 매칭
+        # 패턴: "1205회차 (2026.01.03)" 와 번호들
+        
+        # 회차 확인
+        draw_pattern = rf'{draw_no}회차\s*\((\d{{4}}\.\d{{2}}\.\d{{2}})\)'
+        draw_match = re.search(draw_pattern, html)
+        
+        if not draw_match:
+            logger.warning(f"⚠️ 네이버에서 {draw_no}회차 정보를 찾을 수 없음")
+            return None
+        
+        draw_date = draw_match.group(1).replace('.', '-')
+        
+        # 당첨번호 패턴 (연속된 6개 숫자 + 보너스)
+        # 네이버 결과에서 "1 4 16 23 31 41  2" 형태
+        # HTML에서 숫자들을 추출
+        
+        # 방법 1: 로또 번호 영역에서 숫자 추출
+        # 네이버 검색 결과 HTML 구조: 번호가 연속으로 나옴
+        numbers_pattern = r'당첨번호.*?(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)'
+        numbers_match = re.search(numbers_pattern, html, re.DOTALL)
+        
+        if not numbers_match:
+            # 방법 2: 더 유연한 패턴
+            # 1~45 사이 숫자 7개를 찾기
+            ball_pattern = r'>(\d{1,2})<'
+            balls = re.findall(ball_pattern, html)
+            
+            # 1~45 사이 숫자만 필터링
+            valid_balls = [int(b) for b in balls if 1 <= int(b) <= 45]
+            
+            # 연속된 7개 숫자 찾기 (당첨번호 6개 + 보너스 1개)
+            if len(valid_balls) >= 7:
+                # 첫 번째로 나오는 7개 사용 (보통 당첨번호)
+                numbers = valid_balls[:6]
+                bonus = valid_balls[6]
+            else:
+                logger.warning(f"⚠️ 네이버에서 당첨번호 파싱 실패")
+                return None
+        else:
+            numbers = [int(numbers_match.group(i)) for i in range(1, 7)]
+            bonus = int(numbers_match.group(7))
+        
+        # 유효성 검사
+        if not all(1 <= n <= 45 for n in numbers) or not (1 <= bonus <= 45):
+            logger.warning(f"⚠️ 파싱된 번호가 유효하지 않음: {numbers} + {bonus}")
+            return None
+        
+        result = {
+            'drwNo': draw_no,
+            'drwNoDate': draw_date,
+            'drwtNo1': numbers[0],
+            'drwtNo2': numbers[1],
+            'drwtNo3': numbers[2],
+            'drwtNo4': numbers[3],
+            'drwtNo5': numbers[4],
+            'drwtNo6': numbers[5],
+            'bnusNo': bonus,
+            'returnValue': 'success'
+        }
+        
+        logger.info(f"✅ {draw_no}회차 네이버에서 가져오기 성공: {numbers} + 보너스 {bonus}")
+        return result
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"❌ 네이버 검색 네트워크 오류: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"❌ 네이버 검색 파싱 오류: {e}")
+        return None
 
 def fetch_from_main_page() -> List[Dict]:
     """
@@ -79,22 +179,52 @@ def fetch_from_main_page() -> List[Dict]:
         logger.info("🌐 Selenium으로 메인 페이지 스크래핑 시작...")
         
         options = Options()
-        options.add_argument('--headless')
+        # Docker/Railway 환경 필수 옵션들
+        options.add_argument('--headless=new')  # 새로운 headless 모드
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
         options.add_argument('--disable-extensions')
         options.add_argument('--disable-software-rasterizer')
-        options.add_argument('--remote-debugging-port=9222')
+        options.add_argument('--single-process')  # Docker에서 중요
+        options.add_argument('--disable-setuid-sandbox')
+        options.add_argument('--disable-background-networking')
+        options.add_argument('--disable-default-apps')
+        options.add_argument('--disable-sync')
+        options.add_argument('--disable-translate')
+        options.add_argument('--metrics-recording-only')
+        options.add_argument('--no-first-run')
+        options.add_argument('--safebrowsing-disable-auto-update')
         options.add_argument('--window-size=1920,1080')
         options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36')
         
         # 서버 환경에서 Chrome 경로 설정
         import os
+        chrome_path = None
         if os.path.exists('/usr/bin/google-chrome'):
-            options.binary_location = '/usr/bin/google-chrome'
+            chrome_path = '/usr/bin/google-chrome'
+            options.binary_location = chrome_path
+        elif os.path.exists('/usr/bin/google-chrome-stable'):
+            chrome_path = '/usr/bin/google-chrome-stable'
+            options.binary_location = chrome_path
         
-        driver = webdriver.Chrome(options=options)
+        # ChromeDriver 서비스 설정
+        service = None
+        chromedriver_path = '/usr/local/bin/chromedriver'
+        if os.path.exists(chromedriver_path):
+            service = Service(executable_path=chromedriver_path)
+            logger.info(f"🔧 ChromeDriver 경로: {chromedriver_path}")
+        
+        if chrome_path:
+            logger.info(f"🔧 Chrome 경로: {chrome_path}")
+        
+        # WebDriver 생성 (타임아웃 연장)
+        if service:
+            driver = webdriver.Chrome(service=service, options=options)
+        else:
+            driver = webdriver.Chrome(options=options)
+        
+        driver.set_page_load_timeout(60)  # 페이지 로드 타임아웃 60초
         driver.get(MAIN_PAGE_URL)
         time.sleep(3)  # JavaScript 렌더링 대기
         
@@ -205,8 +335,13 @@ def fetch_winning_number_from_cache(draw_no: int) -> Optional[Dict]:
     """
     메인 페이지 스크래핑 캐시에서 당첨번호 조회
     캐시가 없거나 오래되면 새로 스크래핑
+    Selenium 실패 시 네이버 검색으로 폴백
     """
-    global _main_page_cache, _main_page_cache_time
+    global _main_page_cache, _main_page_cache_time, _use_naver_search
+    
+    # 네이버 검색 모드가 활성화되어 있으면 바로 네이버 사용
+    if _use_naver_search:
+        return fetch_from_naver_search(draw_no)
     
     current_time = time.time()
     
@@ -214,6 +349,12 @@ def fetch_winning_number_from_cache(draw_no: int) -> Optional[Dict]:
     if current_time - _main_page_cache_time > 300 or draw_no not in _main_page_cache:
         logger.info("🔄 메인 페이지에서 최신 당첨번호 스크래핑 중...")
         results = fetch_from_main_page()
+        
+        # Selenium 실패 시 네이버 검색으로 폴백
+        if not results:
+            logger.warning("⚠️ Selenium 스크래핑 실패 - 네이버 검색으로 전환합니다")
+            _use_naver_search = True
+            return fetch_from_naver_search(draw_no)
         
         # 캐시 업데이트
         _main_page_cache = {r['drwNo']: r for r in results}
@@ -227,8 +368,9 @@ def fetch_winning_number_from_cache(draw_no: int) -> Optional[Dict]:
         logger.info(f"✅ {draw_no}회차 당첨 번호 가져오기 성공 (메인페이지)")
         return _main_page_cache[draw_no]
     else:
-        logger.warning(f"❌ {draw_no}회차 정보를 메인 페이지에서 찾을 수 없음 (최근 5회차만 표시됨)")
-        return None
+        # 캐시에 없으면 네이버 검색 시도
+        logger.info(f"ℹ️ {draw_no}회차가 캐시에 없음 - 네이버 검색 시도")
+        return fetch_from_naver_search(draw_no)
 
 def save_winning_number_to_db(db: Session, draw_data: Dict) -> Optional[WinningNumber]:
     """

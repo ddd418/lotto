@@ -1,12 +1,31 @@
 # Railway용 Dockerfile - Selenium + Chrome 지원
 FROM python:3.11-slim
 
-# Chrome 및 ChromeDriver 설치 (새로운 GPG 키 방식)
+# Chrome 실행에 필요한 라이브러리 및 도구 설치
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
     unzip \
     curl \
+    # Chrome 실행에 필요한 라이브러리들
+    libglib2.0-0 \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpango-1.0-0 \
+    libcairo2 \
+    fonts-liberation \
+    xdg-utils \
     && mkdir -p /etc/apt/keyrings \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg \
     && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
@@ -36,6 +55,12 @@ COPY . .
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
 ENV PORT=8000
+# Chrome headless 모드에서 필요한 환경변수
+ENV CHROME_BIN=/usr/bin/google-chrome
+ENV CHROMEDRIVER_PATH=/usr/local/bin/chromedriver
+
+# /dev/shm 크기 문제 해결을 위한 임시 디렉토리 설정
+ENV TMPDIR=/tmp
 
 # 포트 노출
 EXPOSE 8000
